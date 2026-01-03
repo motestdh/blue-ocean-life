@@ -1,48 +1,99 @@
-import { Plus, Search, Users, Mail, Phone } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Search, Users, Mail, Phone, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useClients } from '@/hooks/useClients';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
 
-const sampleClients = [
-  {
-    id: '1',
-    name: 'Acme Corp',
-    email: 'contact@acme.com',
-    phone: '+1 555-0123',
-    status: 'active',
-    projects: 3,
-    revenue: 15000,
-  },
-  {
-    id: '2',
-    name: 'TechStart Inc',
-    email: 'hello@techstart.io',
-    phone: '+1 555-0456',
-    status: 'lead',
-    projects: 1,
-    revenue: 5000,
-  },
-  {
-    id: '3',
-    name: 'Design Studio',
-    email: 'info@designstudio.co',
-    phone: '+1 555-0789',
-    status: 'past',
-    projects: 2,
-    revenue: 8500,
-  },
-];
+type ClientStatus = Database['public']['Enums']['client_status'];
 
-const statusColors: Record<string, string> = {
-  lead: 'bg-status-new/10 text-status-new',
-  active: 'bg-status-completed/10 text-status-completed',
+const statusColors: Record<ClientStatus, string> = {
+  lead: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   past: 'bg-muted text-muted-foreground',
-  partner: 'bg-status-progress/10 text-status-progress',
+  partner: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
 };
 
 export default function Clients() {
+  const { clients, loading, addClient, updateClient, deleteClient } = useClients();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newClient, setNewClient] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    status: 'lead' as ClientStatus,
+    notes: '',
+  });
+
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.company?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleCreateClient = async () => {
+    if (!newClient.name.trim()) {
+      toast({ title: 'Error', description: 'Name is required', variant: 'destructive' });
+      return;
+    }
+
+    const result = await addClient({
+      name: newClient.name,
+      email: newClient.email || null,
+      phone: newClient.phone || null,
+      company: newClient.company || null,
+      status: newClient.status,
+      notes: newClient.notes || null,
+    });
+
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Client added!' });
+      setDialogOpen(false);
+      setNewClient({ name: '', email: '', phone: '', company: '', status: 'lead', notes: '' });
+    }
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    const result = await deleteClient(id);
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Client deleted!' });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -53,10 +104,89 @@ export default function Clients() {
             Manage your client relationships
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Client
-        </Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Client
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Client</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label htmlFor="name">Name *</Label>
+                <Input
+                  id="name"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                  placeholder="Client name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="company">Company</Label>
+                <Input
+                  id="company"
+                  value={newClient.company}
+                  onChange={(e) => setNewClient({ ...newClient, company: e.target.value })}
+                  placeholder="Company name"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newClient.email}
+                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={newClient.phone}
+                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                    placeholder="+1 555-0123"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={newClient.status}
+                  onValueChange={(value) => setNewClient({ ...newClient, status: value as ClientStatus })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lead">Lead</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="past">Past</SelectItem>
+                    <SelectItem value="partner">Partner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={newClient.notes}
+                  onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                  placeholder="Additional notes..."
+                />
+              </div>
+              <Button onClick={handleCreateClient} className="w-full">
+                Add Client
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Search */}
@@ -65,19 +195,21 @@ export default function Clients() {
         <Input
           placeholder="Search clients..."
           className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
       {/* Clients List */}
       <div className="space-y-3">
-        {sampleClients.map((client) => (
+        {filteredClients.map((client) => (
           <div
             key={client.id}
-            className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200 cursor-pointer"
+            className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200"
           >
             <Avatar className="h-12 w-12">
               <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                {client.name.split(' ').map(n => n[0]).join('')}
+                {client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
               </AvatarFallback>
             </Avatar>
 
@@ -89,29 +221,39 @@ export default function Clients() {
                 </Badge>
               </div>
               <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" />
-                  {client.email}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5" />
-                  {client.phone}
-                </span>
+                {client.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail className="w-3.5 h-3.5" />
+                    {client.email}
+                  </span>
+                )}
+                {client.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5" />
+                    {client.phone}
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="text-right">
-              <p className="font-semibold text-foreground">${client.revenue.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">{client.projects} projects</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDeleteClient(client.id)}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         ))}
       </div>
 
-      {sampleClients.length === 0 && (
+      {filteredClients.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No clients yet. Add your first client!</p>
+          <p>{clients.length === 0 ? 'No clients yet. Add your first client!' : 'No clients match your search.'}</p>
         </div>
       )}
     </div>
