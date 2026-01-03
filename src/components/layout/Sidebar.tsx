@@ -34,12 +34,13 @@ const navItems = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { sidebarCollapsed, toggleSidebar, rtlEnabled } = useAppStore();
 
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-out flex flex-col',
+        'fixed top-0 z-40 h-screen bg-sidebar border-sidebar-border transition-all duration-300 ease-out flex flex-col',
+        rtlEnabled ? 'right-0 border-l' : 'left-0 border-r',
         sidebarCollapsed ? 'w-16' : 'w-60'
       )}
     >
@@ -65,7 +66,7 @@ export function Sidebar() {
           {sidebarCollapsed ? (
             <Menu className="h-4 w-4" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className={cn("h-4 w-4", rtlEnabled && "rotate-180")} />
           )}
         </Button>
       </div>

@@ -6,7 +6,13 @@ import {
   Target,
   Calendar,
   Clock,
-  Loader2
+  Loader2,
+  Zap,
+  Timer,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -14,12 +20,13 @@ import { useProjects } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
 import { useHabits } from '@/hooks/useHabits';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useFocusSessions } from '@/hooks/useFocusSessions';
 import type { Database } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Wallet, Check } from 'lucide-react';
+import { format, isToday, isTomorrow, addDays } from 'date-fns';
+import { useAppStore } from '@/stores/useAppStore';
 
 type Project = Database['public']['Tables']['projects']['Row'];
 type Task = Database['public']['Tables']['tasks']['Row'];
@@ -241,8 +248,11 @@ export default function Dashboard() {
   const { tasks, loading: tasksLoading, updateTask } = useTasks();
   const { habits, loading: habitsLoading, isCompletedOnDate, toggleHabitCompletion } = useHabits();
   const { income, expenses, balance, loading: transactionsLoading } = useTransactions();
+  const { sessionsToday, totalFocusTime, formatDuration } = useFocusSessions();
+  const { language } = useAppStore();
 
   const today = new Date().toISOString().split('T')[0];
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
   
   const activeProjects = projects.filter(p => p.status === 'in-progress').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
@@ -252,6 +262,18 @@ export default function Dashboard() {
     if (!t.due_date) return false;
     return t.due_date === today && t.status !== 'completed';
   }).slice(0, 5);
+
+  // Upcoming deadlines (next 7 days)
+  const upcomingDeadlines = tasks
+    .filter(t => {
+      if (!t.due_date || t.status === 'completed') return false;
+      const dueDate = new Date(t.due_date);
+      const now = new Date();
+      const weekFromNow = addDays(now, 7);
+      return dueDate >= now && dueDate <= weekFromNow;
+    })
+    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+    .slice(0, 5);
 
   const upcomingProjects = projects
     .filter(p => p.status !== 'completed' && p.status !== 'cancelled')
@@ -264,6 +286,18 @@ export default function Dashboard() {
         status: task.status === 'completed' ? 'todo' : 'completed'
       });
     }
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (language === 'ar') {
+      if (hour < 12) return 'صباح الخير! 👋';
+      if (hour < 18) return 'مساء الخير! 👋';
+      return 'مساء الخير! 👋';
+    }
+    if (hour < 12) return 'Good morning! 👋';
+    if (hour < 18) return 'Good afternoon! 👋';
+    return 'Good evening! 👋';
   };
 
   const isLoading = projectsLoading || tasksLoading || habitsLoading || transactionsLoading;
@@ -282,15 +316,17 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            Good morning! 👋
+            {getGreeting()}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Here's what's happening with your projects today.
+            {language === 'ar' 
+              ? 'إليك ما يحدث مع مشاريعك اليوم.'
+              : "Here's what's happening with your projects today."}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="w-4 h-4" />
-          <span>{new Date().toLocaleDateString('en-US', { 
+          <span>{new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { 
             weekday: 'long', 
             month: 'long', 
             day: 'numeric' 
@@ -299,26 +335,36 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
-          title="Active Projects"
+          title={language === 'ar' ? 'المشاريع النشطة' : 'Active Projects'}
           value={activeProjects}
           icon={<FolderKanban className="w-5 h-5 text-primary" />}
         />
         <StatCard
-          title="Tasks Completed"
+          title={language === 'ar' ? 'المهام المكتملة' : 'Tasks Done'}
           value={`${completedTasks}/${tasks.length}`}
           icon={<CheckSquare className="w-5 h-5 text-success" />}
           iconBgColor="bg-success/10"
         />
         <StatCard
-          title="Habit Streak"
-          value={`${totalStreak} days`}
+          title={language === 'ar' ? 'سلسلة العادات' : 'Habit Streak'}
+          value={`${totalStreak}`}
           icon={<Flame className="w-5 h-5 text-warning" />}
           iconBgColor="bg-warning/10"
         />
         <StatCard
-          title="This Month"
+          title={language === 'ar' ? 'جلسات اليوم' : 'Focus Today'}
+          value={sessionsToday}
+          icon={<Timer className="w-5 h-5 text-primary" />}
+        />
+        <StatCard
+          title={language === 'ar' ? 'وقت التركيز' : 'Focus Time'}
+          value={formatDuration(totalFocusTime)}
+          icon={<Zap className="w-5 h-5 text-primary" />}
+        />
+        <StatCard
+          title={language === 'ar' ? 'هذا الشهر' : 'This Month'}
           value={`$${income.toLocaleString()}`}
           icon={<DollarSign className="w-5 h-5 text-success" />}
           iconBgColor="bg-success/10"

@@ -7,13 +7,14 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
 import { CommandPalette, useCommandPalette } from '@/components/CommandPalette';
 import { QuickAddDialog } from './QuickAddDialog';
+import { AIChatButton } from '@/components/ai/AIChatButton';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { sidebarCollapsed, theme, themeColor } = useAppStore();
+  const { sidebarCollapsed, theme, themeColor, rtlEnabled, language } = useAppStore();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
@@ -26,7 +27,10 @@ export function Layout({ children }: LayoutProps) {
       document.documentElement.classList.remove(`theme-${c}`);
     });
     document.documentElement.classList.add(`theme-${themeColor}`);
-  }, [theme, themeColor]);
+    // Apply RTL
+    document.documentElement.dir = rtlEnabled ? 'rtl' : 'ltr';
+    document.documentElement.lang = language;
+  }, [theme, themeColor, rtlEnabled, language]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -52,7 +56,9 @@ export function Layout({ children }: LayoutProps) {
       <div
         className={cn(
           'min-h-screen transition-all duration-300',
-          sidebarCollapsed ? 'ml-16' : 'ml-64'
+          rtlEnabled 
+            ? (sidebarCollapsed ? 'mr-16' : 'mr-64')
+            : (sidebarCollapsed ? 'ml-16' : 'ml-64')
         )}
       >
         <Header onCommandPalette={() => setCommandOpen(true)} />
@@ -71,6 +77,8 @@ export function Layout({ children }: LayoutProps) {
         open={quickAddOpen}
         onOpenChange={setQuickAddOpen}
       />
+      
+      <AIChatButton />
     </div>
   );
 }
