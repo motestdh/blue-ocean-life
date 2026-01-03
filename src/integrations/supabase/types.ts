@@ -14,7 +14,467 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          avatar_url: string | null
+          company: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          status: Database["public"]["Enums"]["client_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["client_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["client_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      courses: {
+        Row: {
+          completed_lessons: number | null
+          created_at: string
+          id: string
+          instructor: string | null
+          notes: string | null
+          platform: string | null
+          status: string | null
+          target_date: string | null
+          title: string
+          total_lessons: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_lessons?: number | null
+          created_at?: string
+          id?: string
+          instructor?: string | null
+          notes?: string | null
+          platform?: string | null
+          status?: string | null
+          target_date?: string | null
+          title: string
+          total_lessons?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_lessons?: number | null
+          created_at?: string
+          id?: string
+          instructor?: string | null
+          notes?: string | null
+          platform?: string | null
+          status?: string | null
+          target_date?: string | null
+          title?: string
+          total_lessons?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      focus_sessions: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          duration: number | null
+          end_time: string | null
+          id: string
+          session_type: string | null
+          start_time: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          duration?: number | null
+          end_time?: string | null
+          id?: string
+          session_type?: string | null
+          start_time: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          duration?: number | null
+          end_time?: string | null
+          id?: string
+          session_type?: string | null
+          start_time?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_sessions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habit_completions: {
+        Row: {
+          completed_date: string
+          created_at: string
+          habit_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          completed_date: string
+          created_at?: string
+          habit_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          completed_date?: string
+          created_at?: string
+          habit_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_completions_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habits: {
+        Row: {
+          best_streak: number | null
+          color: string | null
+          created_at: string
+          current_streak: number | null
+          description: string | null
+          frequency: Database["public"]["Enums"]["habit_frequency"]
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_streak?: number | null
+          color?: string | null
+          created_at?: string
+          current_streak?: number | null
+          description?: string | null
+          frequency?: Database["public"]["Enums"]["habit_frequency"]
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_streak?: number | null
+          color?: string | null
+          created_at?: string
+          current_streak?: number | null
+          description?: string | null
+          frequency?: Database["public"]["Enums"]["habit_frequency"]
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notes: {
+        Row: {
+          content: string | null
+          created_at: string
+          folder: string | null
+          id: string
+          is_pinned: boolean | null
+          project_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          folder?: string | null
+          id?: string
+          is_pinned?: boolean | null
+          project_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          folder?: string | null
+          id?: string
+          is_pinned?: boolean | null
+          project_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          actual_cost: number | null
+          budget: number | null
+          client_id: string | null
+          color: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: Database["public"]["Enums"]["priority_level"]
+          progress: number | null
+          status: Database["public"]["Enums"]["project_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          budget?: number | null
+          client_id?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["priority_level"]
+          progress?: number | null
+          status?: Database["public"]["Enums"]["project_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_cost?: number | null
+          budget?: number | null
+          client_id?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["priority_level"]
+          progress?: number | null
+          status?: Database["public"]["Enums"]["project_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_projects_client"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          actual_time: number | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          estimated_time: number | null
+          id: string
+          parent_task_id: string | null
+          priority: Database["public"]["Enums"]["priority_level"]
+          project_id: string | null
+          sort_order: number | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_time?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          estimated_time?: number | null
+          id?: string
+          parent_task_id?: string | null
+          priority?: Database["public"]["Enums"]["priority_level"]
+          project_id?: string | null
+          sort_order?: number | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_time?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          estimated_time?: number | null
+          id?: string
+          parent_task_id?: string | null
+          priority?: Database["public"]["Enums"]["priority_level"]
+          project_id?: string | null
+          sort_order?: number | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          client_id: string | null
+          created_at: string
+          currency: string | null
+          date: string
+          description: string | null
+          id: string
+          project_id: string | null
+          status: Database["public"]["Enums"]["transaction_status"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          client_id?: string | null
+          created_at?: string
+          currency?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          project_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          client_id?: string | null
+          created_at?: string
+          currency?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          project_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +483,18 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      client_status: "lead" | "active" | "past" | "partner"
+      habit_frequency: "daily" | "weekly" | "monthly"
+      priority_level: "high" | "medium" | "low"
+      project_status:
+        | "new"
+        | "in-progress"
+        | "completed"
+        | "on-hold"
+        | "cancelled"
+      task_status: "todo" | "in-progress" | "completed"
+      transaction_status: "paid" | "pending" | "overdue"
+      transaction_type: "income" | "expense"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +621,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      client_status: ["lead", "active", "past", "partner"],
+      habit_frequency: ["daily", "weekly", "monthly"],
+      priority_level: ["high", "medium", "low"],
+      project_status: [
+        "new",
+        "in-progress",
+        "completed",
+        "on-hold",
+        "cancelled",
+      ],
+      task_status: ["todo", "in-progress", "completed"],
+      transaction_status: ["paid", "pending", "overdue"],
+      transaction_type: ["income", "expense"],
+    },
   },
 } as const
