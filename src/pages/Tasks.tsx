@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, Square } from 'lucide-react';
+import { ExportButton } from '@/components/export/ExportButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTasks } from '@/hooks/useTasks';
@@ -50,7 +51,15 @@ const priorityDotColors: Record<string, string> = {
   low: 'bg-priority-low',
 };
 
-function SortableTaskItem({ task, onToggle }: { task: Task; onToggle: () => void }) {
+interface SortableTaskItemProps {
+  task: Task;
+  onToggle: () => void;
+  onTimeUpdate: (taskId: string, time: number) => void;
+  timerState: { [key: string]: { isRunning: boolean; seconds: number } };
+  onTimerToggle: (taskId: string) => void;
+}
+
+function SortableTaskItem({ task, onToggle, onTimeUpdate, timerState, onTimerToggle }: SortableTaskItemProps) {
   const {
     attributes,
     listeners,
@@ -63,6 +72,15 @@ function SortableTaskItem({ task, onToggle }: { task: Task; onToggle: () => void
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+  };
+
+  const timer = timerState[task.id] || { isRunning: false, seconds: (task.actual_time || 0) * 3600 };
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -104,6 +122,29 @@ function SortableTaskItem({ task, onToggle }: { task: Task; onToggle: () => void
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Time Tracker */}
+        {task.status !== 'completed' && (
+          <div className="flex items-center gap-1">
+            <div className={cn(
+              'flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md',
+              timer.isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+            )}>
+              <Clock className="w-3 h-3" />
+              <span>{formatTime(timer.seconds)}</span>
+            </div>
+            <button
+              onClick={() => onTimerToggle(task.id)}
+              className="p-1 rounded hover:bg-muted transition-colors"
+            >
+              {timer.isRunning ? (
+                <Pause className="w-3.5 h-3.5 text-primary" />
+              ) : (
+                <Play className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
+            </button>
+          </div>
+        )}
+
         <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
         
         {task.estimated_time && (
@@ -129,6 +170,7 @@ export default function Tasks() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [timerState, setTimerState] = useState<{ [key: string]: { isRunning: boolean; seconds: number } }>({});
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -146,6 +188,38 @@ export default function Tasks() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Initialize timer state from tasks
+  useEffect(() => {
+    const initialState: { [key: string]: { isRunning: boolean; seconds: number } } = {};
+    tasks.forEach(task => {
+      if (!timerState[task.id]) {
+        initialState[task.id] = { isRunning: false, seconds: (task.actual_time || 0) * 3600 };
+      }
+    });
+    if (Object.keys(initialState).length > 0) {
+      setTimerState(prev => ({ ...prev, ...initialState }));
+    }
+  }, [tasks]);
+
+  // Timer interval effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimerState(prev => {
+        const newState = { ...prev };
+        let hasChanges = false;
+        Object.keys(newState).forEach(taskId => {
+          if (newState[taskId].isRunning) {
+            newState[taskId] = { ...newState[taskId], seconds: newState[taskId].seconds + 1 };
+            hasChanges = true;
+          }
+        });
+        return hasChanges ? newState : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync local tasks with fetched tasks
   if (tasks.length > 0 && localTasks.length === 0) {
@@ -168,6 +242,24 @@ export default function Tasks() {
     setLocalTasks(prev => prev.map(t => 
       t.id === task.id ? { ...t, status: task.status === 'completed' ? 'todo' : 'completed' } : t
     ));
+  };
+
+  const handleTimerToggle = async (taskId: string) => {
+    const current = timerState[taskId] || { isRunning: false, seconds: 0 };
+    
+    if (current.isRunning) {
+      // Stop timer and save time
+      await updateTask(taskId, { actual_time: current.seconds / 3600 });
+    }
+    
+    setTimerState(prev => ({
+      ...prev,
+      [taskId]: { ...current, isRunning: !current.isRunning }
+    }));
+  };
+
+  const handleTimeUpdate = async (taskId: string, time: number) => {
+    await updateTask(taskId, { actual_time: time });
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -228,7 +320,14 @@ export default function Tasks() {
         <div className="space-y-2">
           {sectionTasks.length > 0 ? (
             sectionTasks.map((task) => (
-              <SortableTaskItem key={task.id} task={task} onToggle={() => handleToggle(task)} />
+              <SortableTaskItem 
+                key={task.id} 
+                task={task} 
+                onToggle={() => handleToggle(task)}
+                onTimeUpdate={handleTimeUpdate}
+                timerState={timerState}
+                onTimerToggle={handleTimerToggle}
+              />
             ))
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -250,10 +349,24 @@ export default function Tasks() {
             {displayTasks.filter(t => t.status !== 'completed').length} tasks remaining
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Add Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton 
+            data={displayTasks as unknown as Record<string, unknown>[]}
+            filename="tasks"
+            columns={[
+              { key: 'title' as keyof Record<string, unknown>, label: 'Title' },
+              { key: 'description' as keyof Record<string, unknown>, label: 'Description' },
+              { key: 'status' as keyof Record<string, unknown>, label: 'Status' },
+              { key: 'priority' as keyof Record<string, unknown>, label: 'Priority' },
+              { key: 'due_date' as keyof Record<string, unknown>, label: 'Due Date' },
+              { key: 'actual_time' as keyof Record<string, unknown>, label: 'Time (hours)' },
+            ]}
+          />
+          <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Add Task
+          </Button>
+        </div>
       </div>
 
       {/* Dialog */}
