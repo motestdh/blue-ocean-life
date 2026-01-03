@@ -49,7 +49,41 @@ export function useTasks(projectId?: string | null) {
 
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tasks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newTask = payload.new as Task;
+            if (newTask.user_id === user?.id) {
+              setTasks((prev) => {
+                if (prev.find(t => t.id === newTask.id)) return prev;
+                return [...prev, newTask];
+              });
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedTask = payload.new as Task;
+            setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedTask = payload.old as Task;
+            setTasks((prev) => prev.filter((t) => t.id !== deletedTask.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTasks, user?.id]);
 
   const addTask = async (task: Omit<TaskInsert, 'user_id'>) => {
     if (!user) return { error: 'Not authenticated' };

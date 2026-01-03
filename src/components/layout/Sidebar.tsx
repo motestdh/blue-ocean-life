@@ -13,7 +13,8 @@ import {
   Settings,
   ChevronLeft,
   Menu,
-  Zap
+  Zap,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
@@ -30,6 +31,7 @@ const navItems = [
   { icon: BookOpen, label: 'Learning', path: '/learning' },
   { icon: FileText, label: 'Notes', path: '/notes' },
   { icon: Repeat, label: 'Habits', path: '/habits' },
+  { icon: BarChart3, label: 'Analytics', path: '/analytics' },
 ];
 
 export function Sidebar() {
