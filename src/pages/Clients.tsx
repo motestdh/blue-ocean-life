@@ -22,9 +22,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
+import { EditClientDialog } from '@/components/dialogs/EditClientDialog';
 import type { Database } from '@/integrations/supabase/types';
 
+type Client = Database['public']['Tables']['clients']['Row'];
 type ClientStatus = Database['public']['Enums']['client_status'];
 
 const statusColors: Record<ClientStatus, string> = {
@@ -38,6 +50,8 @@ export default function Clients() {
   const { clients, loading, addClient, updateClient, deleteClient } = useClients();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [deletingClient, setDeletingClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState({
     name: '',
     email: '',
@@ -77,13 +91,16 @@ export default function Clients() {
     }
   };
 
-  const handleDeleteClient = async (id: string) => {
-    const result = await deleteClient(id);
+  const handleDeleteClient = async () => {
+    if (!deletingClient) return;
+    
+    const result = await deleteClient(deletingClient.id);
     if (result.error) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Client deleted!' });
     }
+    setDeletingClient(null);
   };
 
   if (loading) {
@@ -240,7 +257,15 @@ export default function Clients() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => handleDeleteClient(client.id)}
+                onClick={() => setEditingClient(client)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Edit2 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeletingClient(client)}
                 className="text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="w-4 h-4" />
@@ -256,6 +281,32 @@ export default function Clients() {
           <p>{clients.length === 0 ? 'No clients yet. Add your first client!' : 'No clients match your search.'}</p>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <EditClientDialog
+        client={editingClient}
+        open={!!editingClient}
+        onOpenChange={(open) => !open && setEditingClient(null)}
+        onSave={updateClient}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingClient} onOpenChange={(open) => !open && setDeletingClient(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingClient?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteClient} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

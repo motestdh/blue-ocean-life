@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, FileText, Folder, Trash2, Pin, Loader2 } from 'lucide-react';
+import { Plus, Search, FileText, Folder, Trash2, Pin, Loader2, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -11,15 +11,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { EditNoteDialog } from '@/components/dialogs/EditNoteDialog';
 import { formatDistanceToNow } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
+
+type Note = Database['public']['Tables']['notes']['Row'];
 
 export default function Notes() {
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [deletingNote, setDeletingNote] = useState<Note | null>(null);
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
@@ -67,13 +83,16 @@ export default function Notes() {
     }
   };
 
-  const handleDeleteNote = async (id: string) => {
-    const result = await deleteNote(id);
+  const handleDeleteNote = async () => {
+    if (!deletingNote) return;
+    
+    const result = await deleteNote(deletingNote.id);
     if (result.error) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Note deleted!' });
     }
+    setDeletingNote(null);
   };
 
   if (loading) {
@@ -159,9 +178,10 @@ export default function Notes() {
           <div
             key={note.id}
             className={cn(
-              'p-5 rounded-xl border bg-card hover:border-primary/30 transition-all duration-200 group',
+              'p-5 rounded-xl border bg-card hover:border-primary/30 transition-all duration-200 group cursor-pointer',
               note.is_pinned && 'border-primary/50'
             )}
+            onClick={() => setEditingNote(note)}
           >
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-semibold text-foreground">{note.title}</h3>
@@ -170,15 +190,32 @@ export default function Notes() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => handleTogglePin(note.id, note.is_pinned || false)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTogglePin(note.id, note.is_pinned || false);
+                  }}
                 >
                   <Pin className={cn('w-3.5 h-3.5', note.is_pinned && 'fill-primary text-primary')} />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingNote(note);
+                  }}
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDeleteNote(note.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeletingNote(note);
+                  }}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
@@ -204,6 +241,32 @@ export default function Notes() {
           <p>{notes.length === 0 ? 'No notes yet. Start writing!' : 'No notes match your search.'}</p>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <EditNoteDialog
+        note={editingNote}
+        open={!!editingNote}
+        onOpenChange={(open) => !open && setEditingNote(null)}
+        onSave={updateNote}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingNote} onOpenChange={(open) => !open && setDeletingNote(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Note</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingNote?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteNote} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

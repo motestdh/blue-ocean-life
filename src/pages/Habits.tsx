@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Flame, TrendingUp, Loader2, Check, Trash2, Target } from 'lucide-react';
+import { Plus, Flame, TrendingUp, Loader2, Check, Trash2, Target, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useHabits } from '@/hooks/useHabits';
 import { cn } from '@/lib/utils';
@@ -10,18 +10,34 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { EditHabitDialog } from '@/components/dialogs/EditHabitDialog';
+import type { Database } from '@/integrations/supabase/types';
+
+type Habit = Database['public']['Tables']['habits']['Row'];
 
 const EMOJI_OPTIONS = ['⭐', '💪', '📚', '🏃', '💧', '🧘', '✍️', '🎯', '💤', '🍎'];
 const COLOR_OPTIONS = ['#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 export default function Habits() {
-  const { habits, loading, addHabit, deleteHabit, isCompletedOnDate, toggleHabitCompletion } = useHabits();
+  const { habits, loading, addHabit, updateHabit, deleteHabit, isCompletedOnDate, toggleHabitCompletion } = useHabits();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null);
   const [newHabit, setNewHabit] = useState({
     name: '',
     description: '',
@@ -57,13 +73,16 @@ export default function Habits() {
     }
   };
 
-  const handleDeleteHabit = async (id: string) => {
-    const result = await deleteHabit(id);
+  const handleDeleteHabit = async () => {
+    if (!deletingHabit) return;
+    
+    const result = await deleteHabit(deletingHabit.id);
     if (result.error) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Habit deleted!' });
     }
+    setDeletingHabit(null);
   };
 
   if (loading) {
@@ -120,6 +139,7 @@ export default function Habits() {
                   {EMOJI_OPTIONS.map((emoji) => (
                     <button
                       key={emoji}
+                      type="button"
                       onClick={() => setNewHabit({ ...newHabit, icon: emoji })}
                       className={cn(
                         'w-10 h-10 rounded-lg border-2 text-xl flex items-center justify-center transition-all',
@@ -139,6 +159,7 @@ export default function Habits() {
                   {COLOR_OPTIONS.map((color) => (
                     <button
                       key={color}
+                      type="button"
                       onClick={() => setNewHabit({ ...newHabit, color })}
                       className={cn(
                         'w-8 h-8 rounded-full border-2 transition-all',
@@ -267,8 +288,16 @@ export default function Habits() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingHabit(habit)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDeleteHabit(habit.id)}
+                    onClick={() => setDeletingHabit(habit)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -286,6 +315,32 @@ export default function Habits() {
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <EditHabitDialog
+        habit={editingHabit}
+        open={!!editingHabit}
+        onOpenChange={(open) => !open && setEditingHabit(null)}
+        onSave={updateHabit}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingHabit} onOpenChange={(open) => !open && setDeletingHabit(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Habit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingHabit?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteHabit} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

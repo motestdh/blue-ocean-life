@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, FolderOpen, CheckSquare, Users, FileText, Wallet } from 'lucide-react';
 import {
   Dialog,
@@ -30,12 +30,18 @@ type QuickAddType = 'project' | 'task' | 'client' | 'note' | 'transaction';
 
 interface QuickAddDialogProps {
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
-  const [open, setOpen] = useState(false);
+export function QuickAddDialog({ trigger, open: controlledOpen, onOpenChange }: QuickAddDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<QuickAddType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
 
   const { addProject } = useProjects();
   const { addTask } = useTasks();
@@ -107,9 +113,7 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: `${selectedType} created!` });
-      setOpen(false);
-      setSelectedType(null);
-      setFormData({});
+      handleClose();
     }
   };
 
@@ -118,6 +122,14 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
     setSelectedType(null);
     setFormData({});
   };
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedType(null);
+      setFormData({});
+    }
+  }, [open]);
 
   const renderForm = () => {
     switch (selectedType) {
@@ -132,6 +144,7 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
                 value={formData.title || ''}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder={`${selectedType} title`}
+                autoFocus
               />
             </div>
             <div>
@@ -156,6 +169,7 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
                 value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Client name"
+                autoFocus
               />
             </div>
             <div>
@@ -181,6 +195,7 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
                 value={formData.title || ''}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="Note title"
+                autoFocus
               />
             </div>
             <div>
@@ -222,6 +237,7 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
                 value={formData.amount || ''}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="0.00"
+                autoFocus
               />
             </div>
             <div>
@@ -246,14 +262,11 @@ export function QuickAddDialog({ trigger }: QuickAddDialogProps) {
       if (!isOpen) handleClose();
       else setOpen(true);
     }}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="default" size="sm" className="gap-2">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Quick Add</span>
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>

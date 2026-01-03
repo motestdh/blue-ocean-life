@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTransactions } from '@/hooks/useTransactions';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,31 +33,38 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { EditTransactionDialog } from '@/components/dialogs/EditTransactionDialog';
 import type { Database } from '@/integrations/supabase/types';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
-function TransactionItem({ transaction }: { transaction: Transaction }) {
+interface TransactionItemProps {
+  transaction: Transaction;
+  onEdit: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
+}
+
+function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps) {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200">
+    <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200 group">
       <div className={cn(
         'w-10 h-10 rounded-full flex items-center justify-center',
-        transaction.type === 'income' ? 'bg-success/10' : 'bg-destructive/10'
+        transaction.type === 'income' ? 'bg-emerald-500/10' : 'bg-destructive/10'
       )}>
         {transaction.type === 'income' ? (
-          <ArrowUpRight className="w-5 h-5 text-success" />
+          <ArrowUpRight className="w-5 h-5 text-emerald-500" />
         ) : (
           <ArrowDownRight className="w-5 h-5 text-destructive" />
         )}
       </div>
       <div className="flex-1">
-        <p className="font-medium text-foreground">{transaction.description}</p>
+        <p className="font-medium text-foreground">{transaction.description || 'No description'}</p>
         <p className="text-sm text-muted-foreground">{transaction.category}</p>
       </div>
       <div className="text-right">
         <p className={cn(
           'font-semibold',
-          transaction.type === 'income' ? 'text-success' : 'text-destructive'
+          transaction.type === 'income' ? 'text-emerald-500' : 'text-destructive'
         )}>
           {transaction.type === 'income' ? '+' : '-'}${Number(transaction.amount).toLocaleString()}
         </p>
@@ -55,13 +72,33 @@ function TransactionItem({ transaction }: { transaction: Transaction }) {
           {format(new Date(transaction.date), 'MMM d, yyyy')}
         </p>
       </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onEdit(transaction)}
+        >
+          <Edit2 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          onClick={() => onDelete(transaction)}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
 
 export default function Finance() {
-  const { transactions, loading, income, expenses, balance, addTransaction } = useTransactions();
+  const { transactions, loading, income, expenses, balance, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [newTransaction, setNewTransaction] = useState<{
     type: 'income' | 'expense';
     amount: string;
@@ -106,6 +143,18 @@ export default function Finance() {
         date: new Date().toISOString().split('T')[0],
       });
     }
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!deletingTransaction) return;
+    
+    const result = await deleteTransaction(deletingTransaction.id);
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Transaction deleted!' });
+    }
+    setDeletingTransaction(null);
   };
 
   if (loading) {
@@ -204,12 +253,12 @@ export default function Finance() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-3 mb-3">
-            <div className="p-2.5 rounded-lg bg-success/10">
-              <TrendingUp className="w-5 h-5 text-success" />
+            <div className="p-2.5 rounded-lg bg-emerald-500/10">
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
             </div>
             <span className="text-sm text-muted-foreground">Income</span>
           </div>
-          <p className="text-3xl font-bold text-success">
+          <p className="text-3xl font-bold text-emerald-500">
             +${income.toLocaleString()}
           </p>
         </div>
@@ -258,19 +307,34 @@ export default function Finance() {
 
         <TabsContent value="all" className="space-y-3">
           {transactions.map((transaction) => (
-            <TransactionItem key={transaction.id} transaction={transaction} />
+            <TransactionItem 
+              key={transaction.id} 
+              transaction={transaction}
+              onEdit={setEditingTransaction}
+              onDelete={setDeletingTransaction}
+            />
           ))}
         </TabsContent>
 
         <TabsContent value="income" className="space-y-3">
           {incomeTransactions.map((transaction) => (
-            <TransactionItem key={transaction.id} transaction={transaction} />
+            <TransactionItem 
+              key={transaction.id} 
+              transaction={transaction}
+              onEdit={setEditingTransaction}
+              onDelete={setDeletingTransaction}
+            />
           ))}
         </TabsContent>
 
         <TabsContent value="expenses" className="space-y-3">
           {expenseTransactions.map((transaction) => (
-            <TransactionItem key={transaction.id} transaction={transaction} />
+            <TransactionItem 
+              key={transaction.id} 
+              transaction={transaction}
+              onEdit={setEditingTransaction}
+              onDelete={setDeletingTransaction}
+            />
           ))}
         </TabsContent>
       </Tabs>
@@ -281,6 +345,32 @@ export default function Finance() {
           <p>No transactions yet. Start tracking your finances!</p>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <EditTransactionDialog
+        transaction={editingTransaction}
+        open={!!editingTransaction}
+        onOpenChange={(open) => !open && setEditingTransaction(null)}
+        onSave={updateTransaction}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingTransaction} onOpenChange={(open) => !open && setDeletingTransaction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this transaction? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTransaction} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

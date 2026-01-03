@@ -31,7 +31,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       // Initial state
       theme: 'dark',
-      themeColor: 'green',
+      themeColor: 'blue',
       sidebarCollapsed: false,
       activeFocusTask: null,
       focusTimerRunning: false,
