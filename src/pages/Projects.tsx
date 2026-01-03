@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, LayoutGrid, List, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, LayoutGrid, List, Loader2, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects } from '@/hooks/useProjects';
@@ -19,12 +19,28 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type Project = Database['public']['Tables']['projects']['Row'];
 
@@ -42,12 +58,39 @@ const priorityColors: Record<string, string> = {
   low: 'border-l-priority-low',
 };
 
-function ProjectCard({ project }: { project: Project }) {
+function SortableProjectCard({ project }: { project: Project }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   return (
-    <div className={cn(
-      'bg-card rounded-xl border border-border p-5 hover-lift cursor-pointer border-l-4',
-      priorityColors[project.priority]
-    )}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'bg-card rounded-xl border border-border p-5 hover-lift cursor-pointer border-l-4 relative group',
+        priorityColors[project.priority],
+        isDragging && 'opacity-50 shadow-xl z-50'
+      )}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="absolute top-3 right-3 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+
       <div className="flex items-center gap-3 mb-2">
         <div 
           className="w-3 h-3 rounded-full" 
@@ -87,28 +130,54 @@ function ProjectCard({ project }: { project: Project }) {
 }
 
 export default function Projects() {
-  const { projects, loading, addProject } = useProjects();
+  const { projects, loading, addProject, updateProject } = useProjects();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newProject, setNewProject] = useState<{
-    title: string;
-    description: string;
-    priority: 'high' | 'medium' | 'low';
-    status: 'new' | 'in-progress' | 'on-hold';
-  }>({
+  const [localProjects, setLocalProjects] = useState<Project[]>([]);
+  const [newProject, setNewProject] = useState({
     title: '',
     description: '',
-    priority: 'medium',
-    status: 'new',
+    priority: 'medium' as 'high' | 'medium' | 'low',
+    status: 'new' as 'new' | 'in-progress' | 'on-hold',
   });
 
-  const filteredProjects = projects.filter((project) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Sync local projects with fetched projects
+  if (projects.length > 0 && localProjects.length === 0) {
+    setLocalProjects(projects);
+  }
+
+  const displayProjects = localProjects.length > 0 ? localProjects : projects;
+
+  const filteredProjects = displayProjects.filter((project) => {
     const matchesSearch = project.title.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === 'all' || project.status === filter;
     return matchesSearch && matchesFilter;
   });
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = displayProjects.findIndex(p => p.id === active.id);
+      const newIndex = displayProjects.findIndex(p => p.id === over.id);
+
+      const newOrder = arrayMove(displayProjects, oldIndex, newIndex);
+      setLocalProjects(newOrder);
+    }
+  };
 
   const handleCreateProject = async () => {
     if (!newProject.title.trim()) {
@@ -129,6 +198,9 @@ export default function Projects() {
       toast({ title: 'Success', description: 'Project created!' });
       setDialogOpen(false);
       setNewProject({ title: '', description: '', priority: 'medium', status: 'new' });
+      if (result.data) {
+        setLocalProjects(prev => [result.data as Project, ...prev]);
+      }
     }
   };
 
@@ -150,81 +222,81 @@ export default function Projects() {
             Manage and track all your projects
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={newProject.title}
-                  onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
-                  placeholder="Project title"
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                  placeholder="Project description"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Priority</Label>
-                  <Select
-                    value={newProject.priority}
-                    onValueChange={(value) => 
-                      setNewProject({ ...newProject, priority: value as 'high' | 'medium' | 'low' })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <Select
-                    value={newProject.status}
-                    onValueChange={(value: any) => 
-                      setNewProject({ ...newProject, status: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="on-hold">On Hold</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button onClick={handleCreateProject} className="w-full">
-                Create Project
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+          <Plus className="w-4 h-4" />
+          New Project
+        </Button>
       </div>
+
+      {/* Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={newProject.title}
+                onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
+                placeholder="Project title"
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newProject.description}
+                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                placeholder="Project description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Priority</Label>
+                <Select
+                  value={newProject.priority}
+                  onValueChange={(value: 'high' | 'medium' | 'low') => 
+                    setNewProject({ ...newProject, priority: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={newProject.status}
+                  onValueChange={(value: 'new' | 'in-progress' | 'on-hold') => 
+                    setNewProject({ ...newProject, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="on-hold">On Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button onClick={handleCreateProject} className="w-full">
+              Create Project
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
@@ -273,15 +345,23 @@ export default function Projects() {
       </div>
 
       {/* Projects Grid/List */}
-      <div className={cn(
-        view === 'grid'
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-          : 'space-y-3'
-      )}>
-        {filteredProjects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={filteredProjects.map(p => p.id)} strategy={rectSortingStrategy}>
+          <div className={cn(
+            view === 'grid'
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+              : 'space-y-3'
+          )}>
+            {filteredProjects.map((project) => (
+              <SortableProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {filteredProjects.length === 0 && (
         <div className="text-center py-12">
