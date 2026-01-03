@@ -317,30 +317,34 @@ export default function Habits() {
       </div>
 
       {/* Edit Dialog */}
-      <EditHabitDialog
-        habit={editingHabit}
-        open={!!editingHabit}
-        onOpenChange={(open) => !open && setEditingHabit(null)}
-        onSave={updateHabit}
-      />
+      {editingHabit && (
+        <EditHabitDialog
+          habit={editingHabit}
+          open={!!editingHabit}
+          onOpenChange={(open) => !open && setEditingHabit(null)}
+          onSave={updateHabit}
+        />
+      )}
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deletingHabit} onOpenChange={(open) => !open && setDeletingHabit(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Habit</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{deletingHabit?.name}"? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteHabit} className="bg-destructive hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {deletingHabit && (
+        <AlertDialog open={!!deletingHabit} onOpenChange={(open) => !open && setDeletingHabit(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Habit</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{deletingHabit?.name}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteHabit} className="bg-destructive hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
