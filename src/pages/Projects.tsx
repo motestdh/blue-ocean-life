@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, LayoutGrid, List, Loader2, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +59,7 @@ const priorityColors: Record<string, string> = {
   low: 'border-l-priority-low',
 };
 
-function SortableProjectCard({ project }: { project: Project }) {
+function SortableProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
   const {
     attributes,
     listeners,
@@ -77,6 +78,7 @@ function SortableProjectCard({ project }: { project: Project }) {
     <div
       ref={setNodeRef}
       style={style}
+      onClick={onClick}
       className={cn(
         'bg-card rounded-xl border border-border p-5 hover-lift cursor-pointer border-l-4 relative group',
         priorityColors[project.priority],
@@ -86,6 +88,7 @@ function SortableProjectCard({ project }: { project: Project }) {
       <button
         {...attributes}
         {...listeners}
+        onClick={(e) => e.stopPropagation()}
         className="absolute top-3 right-3 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity touch-none"
       >
         <GripVertical className="w-4 h-4" />
@@ -130,6 +133,7 @@ function SortableProjectCard({ project }: { project: Project }) {
 }
 
 export default function Projects() {
+  const navigate = useNavigate();
   const { projects, loading, addProject, updateProject } = useProjects();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState('all');
@@ -357,7 +361,11 @@ export default function Projects() {
               : 'space-y-3'
           )}>
             {filteredProjects.map((project) => (
-              <SortableProjectCard key={project.id} project={project} />
+              <SortableProjectCard 
+                key={project.id} 
+                project={project} 
+                onClick={() => navigate(`/projects/${project.id}`)}
+              />
             ))}
           </div>
         </SortableContext>
