@@ -17,18 +17,72 @@ const themeColors = [
   { name: 'cyan', label: 'Cyan', hsl: '180 70% 45%' },
 ] as const;
 
-export default function Settings() {
-  const { theme, setTheme, themeColor, setThemeColor } = useAppStore();
-  const { user } = useAuth();
+const translations = {
+  en: {
+    settings: 'Settings',
+    managePreferences: 'Manage your account and preferences',
+    appearance: 'Appearance',
+    darkMode: 'Dark Mode',
+    darkModeDesc: 'Switch between light and dark themes',
+    themeColor: 'Theme Color',
+    notifications: 'Notifications',
+    taskReminders: 'Task Reminders',
+    taskRemindersDesc: 'Get notified about upcoming tasks',
+    habitCheckins: 'Habit Check-ins',
+    habitCheckinsDesc: 'Daily reminders for your habits',
+    projectUpdates: 'Project Updates',
+    projectUpdatesDesc: 'Notifications for project changes',
+    financialAlerts: 'Financial Alerts',
+    financialAlertsDesc: 'Alerts for payments and bills',
+    languageRegion: 'Language & Region',
+    language: 'Language',
+    languageDesc: 'Select your preferred language',
+    rtlMode: 'RTL Mode',
+    rtlModeDesc: 'Enable right-to-left layout',
+    account: 'Account',
+    editProfile: 'Edit Profile',
+  },
+  ar: {
+    settings: 'الإعدادات',
+    managePreferences: 'إدارة حسابك وتفضيلاتك',
+    appearance: 'المظهر',
+    darkMode: 'الوضع الداكن',
+    darkModeDesc: 'التبديل بين الوضع الفاتح والداكن',
+    themeColor: 'لون السمة',
+    notifications: 'الإشعارات',
+    taskReminders: 'تذكيرات المهام',
+    taskRemindersDesc: 'احصل على إشعارات حول المهام القادمة',
+    habitCheckins: 'تسجيل العادات',
+    habitCheckinsDesc: 'تذكيرات يومية لعاداتك',
+    projectUpdates: 'تحديثات المشاريع',
+    projectUpdatesDesc: 'إشعارات لتغييرات المشاريع',
+    financialAlerts: 'تنبيهات مالية',
+    financialAlertsDesc: 'تنبيهات للمدفوعات والفواتير',
+    languageRegion: 'اللغة والمنطقة',
+    language: 'اللغة',
+    languageDesc: 'اختر لغتك المفضلة',
+    rtlMode: 'وضع RTL',
+    rtlModeDesc: 'تمكين تخطيط من اليمين إلى اليسار',
+    account: 'الحساب',
+    editProfile: 'تعديل الملف الشخصي',
+  },
+};
 
-  // Apply theme color on mount
+export default function Settings() {
+  const { theme, setTheme, themeColor, setThemeColor, language, setLanguage, rtlEnabled, setRtlEnabled } = useAppStore();
+  const { user } = useAuth();
+  const t = translations[language];
+
+  // Apply theme color and RTL on mount
   useEffect(() => {
     const root = document.documentElement;
     ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
       root.classList.remove(`theme-${c}`);
     });
     root.classList.add(`theme-${themeColor}`);
-  }, [themeColor]);
+    root.dir = rtlEnabled ? 'rtl' : 'ltr';
+    root.lang = language;
+  }, [themeColor, rtlEnabled, language]);
 
   const initials = user?.user_metadata?.full_name
     ?.split(' ')
@@ -39,9 +93,9 @@ export default function Settings() {
   return (
     <div className="max-w-2xl space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t.settings}</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your account and preferences
+          {t.managePreferences}
         </p>
       </div>
 
@@ -51,14 +105,14 @@ export default function Settings() {
           <div className="p-2 rounded-lg bg-primary/10">
             <Palette className="w-5 h-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Appearance</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t.appearance}</h2>
         </div>
 
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <Label className="text-foreground">Dark Mode</Label>
+            <Label className="text-foreground">{t.darkMode}</Label>
             <p className="text-sm text-muted-foreground">
-              Switch between light and dark themes
+              {t.darkModeDesc}
             </p>
           </div>
           <div className="flex items-center gap-3 bg-secondary rounded-full p-1">
@@ -86,7 +140,7 @@ export default function Settings() {
         <Separator />
 
         <div>
-          <Label className="text-foreground mb-4 block">Theme Color</Label>
+          <Label className="text-foreground mb-4 block">{t.themeColor}</Label>
           <div className="grid grid-cols-6 gap-3">
             {themeColors.map((color) => (
               <button
@@ -115,15 +169,15 @@ export default function Settings() {
           <div className="p-2 rounded-lg bg-primary/10">
             <Bell className="w-5 h-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Notifications</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t.notifications}</h2>
         </div>
 
         <div className="space-y-4">
           {[
-            { label: 'Task Reminders', description: 'Get notified about upcoming tasks' },
-            { label: 'Habit Check-ins', description: 'Daily reminders for your habits' },
-            { label: 'Project Updates', description: 'Notifications for project changes' },
-            { label: 'Financial Alerts', description: 'Alerts for payments and bills' },
+            { label: t.taskReminders, description: t.taskRemindersDesc },
+            { label: t.habitCheckins, description: t.habitCheckinsDesc },
+            { label: t.projectUpdates, description: t.projectUpdatesDesc },
+            { label: t.financialAlerts, description: t.financialAlertsDesc },
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between py-2">
               <div className="space-y-1">
@@ -142,23 +196,41 @@ export default function Settings() {
           <div className="p-2 rounded-lg bg-primary/10">
             <Globe className="w-5 h-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Language & Region</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t.languageRegion}</h2>
         </div>
 
         <div className="flex items-center justify-between py-2">
           <div className="space-y-1">
-            <Label className="text-foreground">Language</Label>
-            <p className="text-sm text-muted-foreground">Select your preferred language</p>
+            <Label className="text-foreground">{t.language}</Label>
+            <p className="text-sm text-muted-foreground">{t.languageDesc}</p>
           </div>
-          <Button variant="outline" size="sm">English</Button>
+          <div className="flex gap-2">
+            <Button 
+              variant={language === 'en' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setLanguage('en')}
+            >
+              English
+            </Button>
+            <Button 
+              variant={language === 'ar' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setLanguage('ar')}
+            >
+              العربية
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between py-2">
           <div className="space-y-1">
-            <Label className="text-foreground">RTL Mode</Label>
-            <p className="text-sm text-muted-foreground">Enable right-to-left layout</p>
+            <Label className="text-foreground">{t.rtlMode}</Label>
+            <p className="text-sm text-muted-foreground">{t.rtlModeDesc}</p>
           </div>
-          <Switch />
+          <Switch 
+            checked={rtlEnabled} 
+            onCheckedChange={setRtlEnabled}
+          />
         </div>
       </div>
 
@@ -168,7 +240,7 @@ export default function Settings() {
           <div className="p-2 rounded-lg bg-primary/10">
             <User className="w-5 h-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Account</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t.account}</h2>
         </div>
 
         <div className="flex items-center gap-4">
@@ -179,7 +251,7 @@ export default function Settings() {
             <p className="font-semibold text-foreground">{user?.user_metadata?.full_name || 'User'}</p>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>
-          <Button variant="outline" size="sm">Edit Profile</Button>
+          <Button variant="outline" size="sm">{t.editProfile}</Button>
         </div>
       </div>
     </div>

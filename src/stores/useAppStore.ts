@@ -2,12 +2,17 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 type ThemeColor = 'green' | 'blue' | 'purple' | 'orange' | 'pink' | 'cyan';
+type Language = 'en' | 'ar';
 
 interface AppState {
   // Theme
   theme: 'light' | 'dark';
   themeColor: ThemeColor;
   sidebarCollapsed: boolean;
+  
+  // Language & RTL
+  language: Language;
+  rtlEnabled: boolean;
   
   // Focus state
   activeFocusTask: string | null;
@@ -18,6 +23,8 @@ interface AppState {
   setTheme: (theme: 'light' | 'dark') => void;
   setThemeColor: (color: ThemeColor) => void;
   toggleSidebar: () => void;
+  setLanguage: (lang: Language) => void;
+  setRtlEnabled: (enabled: boolean) => void;
   
   // Focus actions
   startFocus: (taskId: string) => void;
@@ -33,6 +40,8 @@ export const useAppStore = create<AppState>()(
       theme: 'dark',
       themeColor: 'blue',
       sidebarCollapsed: false,
+      language: 'en',
+      rtlEnabled: false,
       activeFocusTask: null,
       focusTimerRunning: false,
       focusTimeRemaining: 25 * 60,
@@ -45,7 +54,6 @@ export const useAppStore = create<AppState>()(
       
       setThemeColor: (color) => {
         set({ themeColor: color });
-        // Remove all theme classes and add the new one
         const root = document.documentElement;
         ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
           root.classList.remove(`theme-${c}`);
@@ -54,6 +62,18 @@ export const useAppStore = create<AppState>()(
       },
       
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+      // Language actions
+      setLanguage: (lang) => {
+        set({ language: lang, rtlEnabled: lang === 'ar' });
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        document.documentElement.lang = lang;
+      },
+      
+      setRtlEnabled: (enabled) => {
+        set({ rtlEnabled: enabled });
+        document.documentElement.dir = enabled ? 'rtl' : 'ltr';
+      },
 
       // Focus actions
       startFocus: (taskId) => set({ 
@@ -85,6 +105,8 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         themeColor: state.themeColor,
         sidebarCollapsed: state.sidebarCollapsed,
+        language: state.language,
+        rtlEnabled: state.rtlEnabled,
       }),
     }
   )
