@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTasks } from '@/hooks/useTasks';
+import { useHabits } from '@/hooks/useHabits';
 import { cn } from '@/lib/utils';
+import { AddEventDialog } from '@/components/calendar/AddEventDialog';
+import { toast } from '@/hooks/use-toast';
 import { 
   format, 
   startOfMonth, 
@@ -18,7 +21,10 @@ import {
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const { tasks } = useTasks();
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const { tasks, addTask } = useTasks();
+  const { habits } = useHabits();
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -29,10 +35,64 @@ export default function CalendarPage() {
 
   const getEventsForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return tasks.filter(t => t.due_date === dateStr);
+    const dayTasks = tasks.filter(t => t.due_date === dateStr);
+    
+    // Add habits as daily events
+    const dayOfWeek = date.getDay();
+    const dailyHabits = habits.filter(h => h.frequency === 'daily').map(h => ({
+      id: `habit-${h.id}`,
+      title: `${h.icon} ${h.name}`,
+      type: 'habit' as const,
+      color: h.color,
+    }));
+
+    return [
+      ...dayTasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        type: 'task' as const,
+        priority: t.priority,
+      })),
+      ...dailyHabits,
+    ];
+  };
+
+  const handleAddEvent = async (data: {
+    title: string;
+    description: string;
+    due_date: string;
+    priority: 'low' | 'medium' | 'high';
+  }) => {
+    const result = await addTask({
+      title: data.title,
+      description: data.description,
+      due_date: data.due_date,
+      priority: data.priority,
+    });
+    
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      return { error: result.error };
+    }
+    
+    toast({ title: 'Success', description: 'Event added to calendar!' });
+    return {};
+  };
+
+  const handleDayClick = (date: Date) => {
+    setSelectedDate(date);
+    setAddEventOpen(true);
   };
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-destructive/10 text-destructive border-destructive/30';
+      case 'medium': return 'bg-amber-500/10 text-amber-600 border-amber-500/30';
+      default: return 'bg-primary/10 text-primary border-primary/30';
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -41,10 +101,13 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground mt-1">
-            View all your deadlines and events
+            View all your deadlines, events, and habits
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => {
+          setSelectedDate(new Date());
+          setAddEventOpen(true);
+        }}>
           <Plus className="w-4 h-4" />
           Add Event
         </Button>
@@ -99,6 +162,7 @@ export default function CalendarPage() {
                   'min-h-[100px] p-2 border-b border-r border-border last:border-r-0 transition-colors hover:bg-muted/50 cursor-pointer',
                   !isCurrentMonth && 'bg-muted/30'
                 )}
+                onClick={() => handleDayClick(day)}
               >
                 <div className={cn(
                   'w-7 h-7 rounded-full flex items-center justify-center text-sm mb-1',
@@ -111,7 +175,13 @@ export default function CalendarPage() {
                   {events.slice(0, 2).map((event) => (
                     <div
                       key={event.id}
-                      className="text-xs p-1 rounded bg-primary/10 text-primary truncate"
+                      className={cn(
+                        'text-xs p-1 rounded border truncate',
+                        event.type === 'habit' 
+                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                          : getPriorityColor(event.priority || 'low')
+                      )}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {event.title}
                     </div>
@@ -127,6 +197,14 @@ export default function CalendarPage() {
           })}
         </div>
       </div>
+
+      {/* Add Event Dialog */}
+      <AddEventDialog
+        open={addEventOpen}
+        onOpenChange={setAddEventOpen}
+        selectedDate={selectedDate}
+        onAddTask={handleAddEvent}
+      />
     </div>
   );
 }

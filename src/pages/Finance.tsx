@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2, Edit2, Trash2, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTransactions } from '@/hooks/useTransactions';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/dialogs/EditTransactionDialog';
+import { FinanceCharts } from '@/components/finance/FinanceCharts';
 import type { Database } from '@/integrations/supabase/types';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
@@ -290,6 +291,9 @@ export default function Finance() {
           </p>
         </div>
       </div>
+
+      {/* Charts */}
+      <FinanceCharts transactions={transactions} income={income} expenses={expenses} />
 
       {/* Transactions */}
       <Tabs defaultValue="all" className="space-y-6">
