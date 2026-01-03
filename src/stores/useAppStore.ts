@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+type ThemeColor = 'green' | 'blue' | 'purple' | 'orange' | 'pink' | 'cyan';
+
 interface AppState {
   // Theme
   theme: 'light' | 'dark';
-  primaryColor: string;
+  themeColor: ThemeColor;
   sidebarCollapsed: boolean;
   
   // Focus state
@@ -14,6 +16,7 @@ interface AppState {
   
   // Actions
   setTheme: (theme: 'light' | 'dark') => void;
+  setThemeColor: (color: ThemeColor) => void;
   toggleSidebar: () => void;
   
   // Focus actions
@@ -27,8 +30,8 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       // Initial state
-      theme: 'light',
-      primaryColor: '#0EA5E9',
+      theme: 'dark',
+      themeColor: 'green',
       sidebarCollapsed: false,
       activeFocusTask: null,
       focusTimerRunning: false,
@@ -38,6 +41,16 @@ export const useAppStore = create<AppState>()(
       setTheme: (theme) => {
         set({ theme });
         document.documentElement.classList.toggle('dark', theme === 'dark');
+      },
+      
+      setThemeColor: (color) => {
+        set({ themeColor: color });
+        // Remove all theme classes and add the new one
+        const root = document.documentElement;
+        ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
+          root.classList.remove(`theme-${c}`);
+        });
+        root.classList.add(`theme-${color}`);
       },
       
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -70,7 +83,7 @@ export const useAppStore = create<AppState>()(
       name: 'lifeos-storage',
       partialize: (state) => ({
         theme: state.theme,
-        primaryColor: state.primaryColor,
+        themeColor: state.themeColor,
         sidebarCollapsed: state.sidebarCollapsed,
       }),
     }
