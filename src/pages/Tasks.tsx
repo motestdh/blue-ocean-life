@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, Square } from 'lucide-react';
+import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, LayoutList, Kanban } from 'lucide-react';
 import { ExportButton } from '@/components/export/ExportButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
+import { KanbanBoard } from '@/components/tasks/KanbanBoard';
+import { useAppStore } from '@/stores/useAppStore';
 import {
   Dialog,
   DialogContent,
@@ -171,6 +173,8 @@ export default function Tasks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [timerState, setTimerState] = useState<{ [key: string]: { isRunning: boolean; seconds: number } }>({});
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const rtlEnabled = useAppStore((state) => state.rtlEnabled);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -350,6 +354,27 @@ export default function Tasks() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'p-2 transition-colors',
+                viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+              )}
+            >
+              <LayoutList className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={cn(
+                'p-2 transition-colors',
+                viewMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+              )}
+            >
+              <Kanban className="w-4 h-4" />
+            </button>
+          </div>
           <ExportButton 
             data={displayTasks as unknown as Record<string, unknown>[]}
             filename="tasks"
@@ -364,7 +389,7 @@ export default function Tasks() {
           />
           <Button className="gap-2" onClick={() => setDialogOpen(true)}>
             <Plus className="w-4 h-4" />
-            Add Task
+            {rtlEnabled ? 'مهمة جديدة' : 'Add Task'}
           </Button>
         </div>
       </div>
@@ -441,59 +466,72 @@ export default function Tasks() {
         />
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="today" className="space-y-6">
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="today" className="gap-2">
-            <Clock className="w-4 h-4" />
-            Today
-            {todayTasks.length > 0 && (
-              <span className="ml-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                {todayTasks.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="upcoming" className="gap-2">
-            <Calendar className="w-4 h-4" />
-            Upcoming
-          </TabsTrigger>
-          <TabsTrigger value="all" className="gap-2">
-            All Tasks
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            Completed
-          </TabsTrigger>
-        </TabsList>
+      {/* Kanban View */}
+      {viewMode === 'kanban' ? (
+        <KanbanBoard
+          tasks={displayTasks}
+          onUpdateTask={async (id, data) => {
+            await updateTask(id, data);
+            setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+          }}
+          onAddTask={() => setDialogOpen(true)}
+          rtl={rtlEnabled}
+        />
+      ) : (
+        /* List View - Tabs */
+        <Tabs defaultValue="today" className="space-y-6">
+          <TabsList className="bg-muted/50">
+            <TabsTrigger value="today" className="gap-2">
+              <Clock className="w-4 h-4" />
+              {rtlEnabled ? 'اليوم' : 'Today'}
+              {todayTasks.length > 0 && (
+                <span className="ml-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  {todayTasks.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="gap-2">
+              <Calendar className="w-4 h-4" />
+              {rtlEnabled ? 'القادمة' : 'Upcoming'}
+            </TabsTrigger>
+            <TabsTrigger value="all" className="gap-2">
+              {rtlEnabled ? 'الكل' : 'All Tasks'}
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              {rtlEnabled ? 'مكتملة' : 'Completed'}
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="today" className="mt-6">
-          <TaskSection 
-            sectionTasks={todayTasks} 
-            emptyMessage="No tasks for today. Add one to get started!" 
-          />
-        </TabsContent>
+          <TabsContent value="today" className="mt-6">
+            <TaskSection 
+              sectionTasks={todayTasks} 
+              emptyMessage={rtlEnabled ? 'لا توجد مهام لليوم' : 'No tasks for today. Add one to get started!'} 
+            />
+          </TabsContent>
 
-        <TabsContent value="upcoming" className="mt-6">
-          <TaskSection 
-            sectionTasks={upcomingTasks} 
-            emptyMessage="No upcoming tasks scheduled." 
-          />
-        </TabsContent>
+          <TabsContent value="upcoming" className="mt-6">
+            <TaskSection 
+              sectionTasks={upcomingTasks} 
+              emptyMessage={rtlEnabled ? 'لا توجد مهام قادمة' : 'No upcoming tasks scheduled.'} 
+            />
+          </TabsContent>
 
-        <TabsContent value="all" className="mt-6">
-          <TaskSection 
-            sectionTasks={allActiveTasks} 
-            emptyMessage="No tasks yet. Create your first task!" 
-          />
-        </TabsContent>
+          <TabsContent value="all" className="mt-6">
+            <TaskSection 
+              sectionTasks={allActiveTasks} 
+              emptyMessage={rtlEnabled ? 'لا توجد مهام' : 'No tasks yet. Create your first task!'} 
+            />
+          </TabsContent>
 
-        <TabsContent value="completed" className="mt-6">
-          <TaskSection 
-            sectionTasks={completedTasks} 
-            emptyMessage="No completed tasks yet." 
-          />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="completed" className="mt-6">
+            <TaskSection 
+              sectionTasks={completedTasks} 
+              emptyMessage={rtlEnabled ? 'لا توجد مهام مكتملة' : 'No completed tasks yet.'} 
+            />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

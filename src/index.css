@@ -48,6 +48,10 @@
     --success: 160 84% 39%;
     --warning: 38 92% 50%;
     --info: 199 89% 48%;
+    
+    --priority-high: 0 84% 60%;
+    --priority-medium: 38 92% 50%;
+    --priority-low: 160 84% 39%;
   }
 
   .dark {
@@ -91,6 +95,10 @@
     --success: 160 84% 39%;
     --warning: 38 92% 50%;
     --info: 199 89% 48%;
+    
+    --priority-high: 0 84% 60%;
+    --priority-medium: 38 92% 50%;
+    --priority-low: 160 84% 39%;
   }
   
   /* Theme color variations */
