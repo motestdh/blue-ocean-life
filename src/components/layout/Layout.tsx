@@ -11,13 +11,18 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { sidebarCollapsed, theme } = useAppStore();
+  const { sidebarCollapsed, theme, themeColor } = useAppStore();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+    // Apply theme color
+    ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
+      document.documentElement.classList.remove(`theme-${c}`);
+    });
+    document.documentElement.classList.add(`theme-${themeColor}`);
+  }, [theme, themeColor]);
 
   useEffect(() => {
     if (!loading && !user) {
