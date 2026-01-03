@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Flame, TrendingUp, Loader2, Check } from 'lucide-react';
+import { Plus, Flame, TrendingUp, Loader2, Check, Trash2, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useHabits } from '@/hooks/useHabits';
 import { cn } from '@/lib/utils';
@@ -14,9 +14,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+
+const EMOJI_OPTIONS = ['⭐', '💪', '📚', '🏃', '💧', '🧘', '✍️', '🎯', '💤', '🍎'];
+const COLOR_OPTIONS = ['#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 export default function Habits() {
-  const { habits, loading, addHabit, isCompletedOnDate, toggleHabitCompletion } = useHabits();
+  const { habits, loading, addHabit, deleteHabit, isCompletedOnDate, toggleHabitCompletion } = useHabits();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newHabit, setNewHabit] = useState({
     name: '',
@@ -29,6 +33,7 @@ export default function Habits() {
   const totalCurrentStreak = habits.reduce((sum, h) => sum + (h.current_streak || 0), 0);
   const totalBestStreak = habits.reduce((sum, h) => sum + (h.best_streak || 0), 0);
   const completedToday = habits.filter(h => isCompletedOnDate(h.id, today)).length;
+  const completionRate = habits.length > 0 ? (completedToday / habits.length) * 100 : 0;
 
   const handleCreateHabit = async () => {
     if (!newHabit.name.trim()) {
@@ -49,6 +54,15 @@ export default function Habits() {
       toast({ title: 'Success', description: 'Habit created!' });
       setDialogOpen(false);
       setNewHabit({ name: '', description: '', icon: '⭐', color: '#0EA5E9' });
+    }
+  };
+
+  const handleDeleteHabit = async (id: string) => {
+    const result = await deleteHabit(id);
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Habit deleted!' });
     }
   };
 
@@ -83,12 +97,12 @@ export default function Habits() {
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
                   value={newHabit.name}
                   onChange={(e) => setNewHabit({ ...newHabit, name: e.target.value })}
-                  placeholder="Habit name"
+                  placeholder="e.g., Drink water, Exercise"
                 />
               </div>
               <div>
@@ -97,27 +111,42 @@ export default function Habits() {
                   id="description"
                   value={newHabit.description}
                   onChange={(e) => setNewHabit({ ...newHabit, description: e.target.value })}
-                  placeholder="Habit description"
+                  placeholder="Why is this habit important?"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="icon">Icon (emoji)</Label>
-                  <Input
-                    id="icon"
-                    value={newHabit.icon}
-                    onChange={(e) => setNewHabit({ ...newHabit, icon: e.target.value })}
-                    placeholder="⭐"
-                  />
+              <div>
+                <Label>Icon</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {EMOJI_OPTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => setNewHabit({ ...newHabit, icon: emoji })}
+                      className={cn(
+                        'w-10 h-10 rounded-lg border-2 text-xl flex items-center justify-center transition-all',
+                        newHabit.icon === emoji 
+                          ? 'border-primary bg-primary/10' 
+                          : 'border-border hover:border-primary/50'
+                      )}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    type="color"
-                    value={newHabit.color}
-                    onChange={(e) => setNewHabit({ ...newHabit, color: e.target.value })}
-                  />
+              </div>
+              <div>
+                <Label>Color</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {COLOR_OPTIONS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewHabit({ ...newHabit, color })}
+                      className={cn(
+                        'w-8 h-8 rounded-full border-2 transition-all',
+                        newHabit.color === color ? 'border-foreground scale-110' : 'border-transparent'
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
                 </div>
               </div>
               <Button onClick={handleCreateHabit} className="w-full">
@@ -128,12 +157,29 @@ export default function Habits() {
         </Dialog>
       </div>
 
+      {/* Today's Progress */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-primary/10">
+              <Target className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Today's Progress</p>
+              <p className="text-sm text-muted-foreground">{completedToday} of {habits.length} habits completed</p>
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-primary">{Math.round(completionRate)}%</p>
+        </div>
+        <Progress value={completionRate} className="h-3" />
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-warning/10">
-              <Flame className="w-5 h-5 text-warning" />
+            <div className="p-2.5 rounded-lg bg-amber-500/10">
+              <Flame className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{totalCurrentStreak}</p>
@@ -144,8 +190,8 @@ export default function Habits() {
 
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-success/10">
-              <TrendingUp className="w-5 h-5 text-success" />
+            <div className="p-2.5 rounded-lg bg-emerald-500/10">
+              <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{totalBestStreak}</p>
@@ -157,11 +203,11 @@ export default function Habits() {
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-primary/10">
-              <Flame className="w-5 h-5 text-primary" />
+              <Check className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{completedToday}/{habits.length}</p>
-              <p className="text-sm text-muted-foreground">Completed Today</p>
+              <p className="text-2xl font-bold text-foreground">{habits.length}</p>
+              <p className="text-sm text-muted-foreground">Active Habits</p>
             </div>
           </div>
         </div>
@@ -170,43 +216,62 @@ export default function Habits() {
       {/* Habits List */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Today's Habits</h2>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {habits.map((habit) => {
             const isCompleted = isCompletedOnDate(habit.id, today);
             return (
               <div 
                 key={habit.id}
-                className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200"
+                className={cn(
+                  'flex items-center gap-4 p-4 rounded-xl border bg-card transition-all duration-200 group',
+                  isCompleted ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border hover:border-primary/30'
+                )}
               >
-                <Button
-                  variant={isCompleted ? 'default' : 'outline'}
-                  size="icon"
+                <button
                   onClick={() => toggleHabitCompletion(habit.id, today)}
                   className={cn(
-                    'h-10 w-10 rounded-full transition-all duration-300',
-                    isCompleted && 'shadow-glow'
+                    'h-12 w-12 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0',
+                    isCompleted 
+                      ? 'shadow-lg' 
+                      : 'border-2 hover:scale-105'
                   )}
                   style={{ 
-                    backgroundColor: isCompleted ? (habit.color || '#0EA5E9') : undefined,
+                    backgroundColor: isCompleted ? (habit.color || '#0EA5E9') : 'transparent',
                     borderColor: habit.color || '#0EA5E9'
                   }}
                 >
                   {isCompleted ? (
-                    <Check className="h-5 w-5 text-white" />
+                    <Check className="h-6 w-6 text-white" />
                   ) : (
-                    <span className="text-lg">{habit.icon}</span>
+                    <span className="text-2xl">{habit.icon}</span>
                   )}
-                </Button>
+                </button>
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground">{habit.name}</p>
-                  <p className="text-sm text-muted-foreground">{habit.description}</p>
+                  <p className={cn(
+                    'font-medium transition-all',
+                    isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'
+                  )}>
+                    {habit.name}
+                  </p>
+                  {habit.description && (
+                    <p className="text-sm text-muted-foreground truncate">{habit.description}</p>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-1.5 text-sm">
-                  <Flame className="w-4 h-4 text-warning" />
-                  <span className="font-semibold text-foreground">{habit.current_streak || 0}</span>
-                  <span className="text-muted-foreground">day streak</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Flame className="w-4 h-4 text-amber-500" />
+                    <span className="font-semibold text-foreground">{habit.current_streak || 0}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDeleteHabit(habit.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             );
@@ -216,7 +281,8 @@ export default function Habits() {
         {habits.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <Flame className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No habits yet. Start building your routine!</p>
+            <p className="font-medium">No habits yet</p>
+            <p className="text-sm mt-1">Start building your daily routine!</p>
           </div>
         )}
       </div>

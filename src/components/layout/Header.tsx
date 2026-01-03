@@ -1,4 +1,4 @@
-import { Bell, Search, Moon, Sun, Plus, Command, LogOut } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Command, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/stores/useAppStore';
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useNavigate } from 'react-router-dom';
+import { QuickAddDialog } from './QuickAddDialog';
 
 export function Header() {
   const { theme, setTheme } = useAppStore();
@@ -53,10 +54,7 @@ export function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="default" size="sm" className="gap-2">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Quick Add</span>
-          </Button>
+          <QuickAddDialog />
 
           <Button
             variant="ghost"

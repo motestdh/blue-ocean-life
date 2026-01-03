@@ -1,36 +1,89 @@
-import { Plus, Search, FileText, Folder } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Search, FileText, Folder, Trash2, Pin, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-
-const sampleNotes = [
-  {
-    id: '1',
-    title: 'Project Requirements',
-    preview: 'Key requirements for the website redesign project including...',
-    folder: 'Work',
-    updatedAt: '2 hours ago',
-    isPinned: true,
-  },
-  {
-    id: '2',
-    title: 'Meeting Notes - Jan 15',
-    preview: 'Discussed the Q1 marketing strategy and outlined key milestones...',
-    folder: 'Meetings',
-    updatedAt: 'Yesterday',
-    isPinned: false,
-  },
-  {
-    id: '3',
-    title: 'Learning Resources',
-    preview: 'Collection of useful resources for learning React and TypeScript...',
-    folder: 'Personal',
-    updatedAt: '3 days ago',
-    isPinned: false,
-  },
-];
+import { useNotes } from '@/hooks/useNotes';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function Notes() {
+  const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newNote, setNewNote] = useState({
+    title: '',
+    content: '',
+    folder: 'General',
+  });
+
+  const filteredNotes = notes.filter(note =>
+    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    note.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    note.folder?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Sort: pinned first, then by updated_at
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    if (a.is_pinned && !b.is_pinned) return -1;
+    if (!a.is_pinned && b.is_pinned) return 1;
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
+
+  const handleCreateNote = async () => {
+    if (!newNote.title.trim()) {
+      toast({ title: 'Error', description: 'Title is required', variant: 'destructive' });
+      return;
+    }
+
+    const result = await addNote({
+      title: newNote.title,
+      content: newNote.content || null,
+      folder: newNote.folder || 'General',
+    });
+
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Note created!' });
+      setDialogOpen(false);
+      setNewNote({ title: '', content: '', folder: 'General' });
+    }
+  };
+
+  const handleTogglePin = async (id: string, currentPinned: boolean) => {
+    const result = await updateNote(id, { is_pinned: !currentPinned });
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    const result = await deleteNote(id);
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Note deleted!' });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -41,10 +94,52 @@ export default function Notes() {
             Capture your ideas and thoughts
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          New Note
-        </Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              New Note
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Note</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label htmlFor="title">Title *</Label>
+                <Input
+                  id="title"
+                  value={newNote.title}
+                  onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                  placeholder="Note title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="folder">Folder</Label>
+                <Input
+                  id="folder"
+                  value={newNote.folder}
+                  onChange={(e) => setNewNote({ ...newNote, folder: e.target.value })}
+                  placeholder="General"
+                />
+              </div>
+              <div>
+                <Label htmlFor="content">Content</Label>
+                <Textarea
+                  id="content"
+                  value={newNote.content}
+                  onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                  placeholder="Write your note..."
+                  rows={6}
+                />
+              </div>
+              <Button onClick={handleCreateNote} className="w-full">
+                Create Note
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Search */}
@@ -53,45 +148,60 @@ export default function Notes() {
         <Input
           placeholder="Search notes..."
           className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
       {/* Notes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sampleNotes.map((note) => (
+        {sortedNotes.map((note) => (
           <div
             key={note.id}
             className={cn(
-              'p-5 rounded-xl border bg-card hover:border-primary/30 transition-all duration-200 cursor-pointer hover-lift',
-              note.isPinned && 'border-primary/50'
+              'p-5 rounded-xl border bg-card hover:border-primary/30 transition-all duration-200 group',
+              note.is_pinned && 'border-primary/50'
             )}
           >
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-semibold text-foreground">{note.title}</h3>
-              {note.isPinned && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                  Pinned
-                </span>
-              )}
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => handleTogglePin(note.id, note.is_pinned || false)}
+                >
+                  <Pin className={cn('w-3.5 h-3.5', note.is_pinned && 'fill-primary text-primary')} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDeleteNote(note.id)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-              {note.preview}
+              {note.content || 'No content'}
             </p>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Folder className="w-3.5 h-3.5" />
-                {note.folder}
+                {note.folder || 'General'}
               </span>
-              <span>{note.updatedAt}</span>
+              <span>{formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {sampleNotes.length === 0 && (
+      {sortedNotes.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No notes yet. Start writing!</p>
+          <p>{notes.length === 0 ? 'No notes yet. Start writing!' : 'No notes match your search.'}</p>
         </div>
       )}
     </div>
