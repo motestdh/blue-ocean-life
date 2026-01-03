@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Edit2, Loader2, GripVertical, Calendar, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit2, Loader2, GripVertical, Calendar, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects } from '@/hooks/useProjects';
@@ -74,12 +74,19 @@ const statusColors: Record<string, string> = {
 function SortableTaskItem({ 
   task, 
   onToggle, 
-  onDelete 
+  onDelete,
+  onAddSubtask,
+  subtasks = [],
+  level = 0,
 }: { 
   task: Task; 
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
+  onAddSubtask?: (parentId: string) => void;
+  subtasks?: Task[];
+  level?: number;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const {
     attributes,
     listeners,
@@ -97,56 +104,95 @@ function SortableTaskItem({
   const isCompleted = task.status === 'completed';
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        'flex items-center gap-3 p-4 bg-card rounded-lg border border-border group',
-        isDragging && 'opacity-50 shadow-xl z-50'
-      )}
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity touch-none"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
-      
-      <Checkbox
-        checked={isCompleted}
-        onCheckedChange={(checked) => onToggle(task.id, checked as boolean)}
-      />
-      
-      <div className="flex-1 min-w-0">
-        <p className={cn(
-          'font-medium text-foreground',
-          isCompleted && 'line-through text-muted-foreground'
-        )}>
-          {task.title}
-        </p>
-        {task.description && (
-          <p className="text-sm text-muted-foreground truncate">{task.description}</p>
+    <div className="space-y-1">
+      <div
+        ref={setNodeRef}
+        style={{ ...style, marginLeft: `${level * 24}px` }}
+        className={cn(
+          'flex items-center gap-3 p-4 bg-card rounded-lg border border-border group',
+          isDragging && 'opacity-50 shadow-xl z-50'
         )}
+      >
+        {subtasks.length > 0 ? (
+          <button 
+            onClick={() => setExpanded(!expanded)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+        ) : (
+          <div className="w-4" />
+        )}
+        
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        
+        <Checkbox
+          checked={isCompleted}
+          onCheckedChange={(checked) => onToggle(task.id, checked as boolean)}
+        />
+        
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            'font-medium text-foreground',
+            isCompleted && 'line-through text-muted-foreground'
+          )}>
+            {task.title}
+          </p>
+          {task.description && (
+            <p className="text-sm text-muted-foreground truncate">{task.description}</p>
+          )}
+        </div>
+        
+        <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
+        
+        {task.due_date && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Calendar className="w-3 h-3" />
+            <span>{format(new Date(task.due_date), 'MMM d')}</span>
+          </div>
+        )}
+        
+        {onAddSubtask && level === 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="opacity-0 group-hover:opacity-100"
+            onClick={() => onAddSubtask(task.id)}
+            title="Add subtask"
+          >
+            <Plus className="w-4 h-4 text-primary" />
+          </Button>
+        )}
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100"
+          onClick={() => onDelete(task.id)}
+        >
+          <Trash2 className="w-4 h-4 text-destructive" />
+        </Button>
       </div>
       
-      <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
-      
-      {task.due_date && (
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Calendar className="w-3 h-3" />
-          <span>{format(new Date(task.due_date), 'MMM d')}</span>
+      {expanded && subtasks.length > 0 && (
+        <div className="space-y-1">
+          {subtasks.map((subtask) => (
+            <SortableTaskItem
+              key={subtask.id}
+              task={subtask}
+              onToggle={onToggle}
+              onDelete={onDelete}
+              level={level + 1}
+            />
+          ))}
         </div>
       )}
-      
-      <Button
-        variant="ghost"
-        size="icon"
-        className="opacity-0 group-hover:opacity-100"
-        onClick={() => onDelete(task.id)}
-      >
-        <Trash2 className="w-4 h-4 text-destructive" />
-      </Button>
     </div>
   );
 }
@@ -159,6 +205,8 @@ export default function ProjectDetail() {
   
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [parentTaskId, setParentTaskId] = useState<string | null>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   
   const project = projects.find(p => p.id === id);
@@ -177,6 +225,11 @@ export default function ProjectDetail() {
     description: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
     due_date: '',
+  });
+
+  const [newSubtask, setNewSubtask] = useState({
+    title: '',
+    priority: 'medium' as 'high' | 'medium' | 'low',
   });
 
   const sensors = useSensors(
@@ -204,6 +257,8 @@ export default function ProjectDetail() {
   }, [tasks]);
 
   const displayTasks = localTasks.length > 0 ? localTasks : tasks;
+  const parentTasks = displayTasks.filter(t => !t.parent_task_id);
+  const getSubtasks = (parentId: string) => displayTasks.filter(t => t.parent_task_id === parentId);
   const completedTasks = displayTasks.filter(t => t.status === 'completed').length;
   const progress = displayTasks.length > 0 ? Math.round((completedTasks / displayTasks.length) * 100) : 0;
 
@@ -276,8 +331,42 @@ export default function ProjectDetail() {
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    // Also delete subtasks
+    const subtasksToDelete = displayTasks.filter(t => t.parent_task_id === taskId);
+    for (const subtask of subtasksToDelete) {
+      await deleteTask(subtask.id);
+    }
     await deleteTask(taskId);
-    setLocalTasks(prev => prev.filter(t => t.id !== taskId));
+    setLocalTasks(prev => prev.filter(t => t.id !== taskId && t.parent_task_id !== taskId));
+  };
+
+  const handleOpenSubtaskDialog = (parentId: string) => {
+    setParentTaskId(parentId);
+    setSubtaskDialogOpen(true);
+  };
+
+  const handleAddSubtask = async () => {
+    if (!newSubtask.title.trim() || !parentTaskId || !id) return;
+    
+    const result = await addTask({
+      title: newSubtask.title,
+      priority: newSubtask.priority,
+      project_id: id,
+      parent_task_id: parentTaskId,
+      sort_order: displayTasks.length,
+    });
+    
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Subtask added!' });
+      setSubtaskDialogOpen(false);
+      setNewSubtask({ title: '', priority: 'medium' });
+      setParentTaskId(null);
+      if (result.data) {
+        setLocalTasks(prev => [...prev, result.data as Task]);
+      }
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -394,14 +483,16 @@ export default function ProjectDetail() {
         </div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={displayTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext items={parentTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
-              {displayTasks.map((task) => (
+              {parentTasks.map((task) => (
                 <SortableTaskItem 
                   key={task.id} 
                   task={task} 
                   onToggle={handleToggleTask}
                   onDelete={handleDeleteTask}
+                  onAddSubtask={handleOpenSubtaskDialog}
+                  subtasks={getSubtasks(task.id)}
                 />
               ))}
             </div>
@@ -565,6 +656,47 @@ export default function ProjectDetail() {
             </div>
             <Button onClick={handleAddTask} className="w-full">
               Add Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Subtask Dialog */}
+      <Dialog open={subtaskDialogOpen} onOpenChange={setSubtaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Subtask</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="subtask-title">Title</Label>
+              <Input
+                id="subtask-title"
+                value={newSubtask.title}
+                onChange={(e) => setNewSubtask({ ...newSubtask, title: e.target.value })}
+                placeholder="Subtask title"
+              />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select
+                value={newSubtask.priority}
+                onValueChange={(value: 'high' | 'medium' | 'low') => 
+                  setNewSubtask({ ...newSubtask, priority: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleAddSubtask} className="w-full">
+              Add Subtask
             </Button>
           </div>
         </DialogContent>
