@@ -17,6 +17,7 @@ import Clients from "./pages/Clients";
 import Notes from "./pages/Notes";
 import Learning from "./pages/Learning";
 import Settings from "./pages/Settings";
+import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +49,7 @@ const App = () => (
                     <Route path="/notes" element={<Notes />} />
                     <Route path="/learning" element={<Learning />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/analytics" element={<Analytics />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Layout>
