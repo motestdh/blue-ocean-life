@@ -1,6 +1,5 @@
-import { Bell, Search, Moon, Sun, Command, LogOut } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Command, LogOut, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/stores/useAppStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -14,7 +13,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { QuickAddDialog } from './QuickAddDialog';
 
-export function Header() {
+interface HeaderProps {
+  onCommandPalette?: () => void;
+}
+
+export function Header({ onCommandPalette }: HeaderProps) {
   const { theme, setTheme } = useAppStore();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -37,24 +40,35 @@ export function Header() {
   return (
     <header className="h-14 border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-30">
       <div className="h-full px-4 flex items-center justify-between gap-4">
-        {/* Search */}
+        {/* Search / Command Palette Trigger */}
         <div className="flex-1 max-w-sm">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              className="pl-9 pr-12 h-9 bg-secondary border-0 focus-visible:ring-1 focus-visible:ring-primary text-sm"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-              <Command className="w-3 h-3" />
-              <span>K</span>
+          <button
+            onClick={onCommandPalette}
+            className="w-full relative flex items-center"
+          >
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <div className="w-full pl-9 pr-12 h-9 bg-secondary border-0 rounded-md flex items-center text-sm text-muted-foreground hover:bg-secondary/80 transition-colors">
+                Search or command...
+              </div>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                <Command className="w-3 h-3" />
+                <span>K</span>
+              </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          <QuickAddDialog />
+          <QuickAddDialog
+            trigger={
+              <Button variant="default" size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Quick Add</span>
+              </Button>
+            }
+          />
 
           <Button
             variant="ghost"
