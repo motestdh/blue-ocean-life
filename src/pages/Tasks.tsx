@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, LayoutList, Kanban, ChevronRight, ChevronDown, Edit2, Trash2 } from 'lucide-react';
 import { ExportButton } from '@/components/export/ExportButton';
 import { Button } from '@/components/ui/button';
@@ -62,12 +63,13 @@ interface SortableTaskItemProps {
   onTimeUpdate: (taskId: string, time: number) => void;
   timerState: { [key: string]: { isRunning: boolean; seconds: number } };
   onTimerToggle: (taskId: string) => void;
+  onFocusStart: (taskId: string) => void;
   onAddSubtask: (parentId: string) => void;
   subtasks: Task[];
   allTasks: Task[];
 }
 
-function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, timerState, onTimerToggle, onAddSubtask, subtasks, allTasks }: SortableTaskItemProps) {
+function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, timerState, onTimerToggle, onFocusStart, onAddSubtask, subtasks, allTasks }: SortableTaskItemProps) {
   const [expanded, setExpanded] = useState(false);
   const {
     attributes,
@@ -193,16 +195,23 @@ function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, time
                 <Clock className="w-3 h-3" />
                 <span>{formatTime(timer.seconds)}</span>
               </div>
-              <button
-                onClick={() => onTimerToggle(task.id)}
-                className="p-1 rounded hover:bg-muted transition-colors"
-              >
-                {timer.isRunning ? (
+              {timer.isRunning ? (
+                <button
+                  onClick={() => onTimerToggle(task.id)}
+                  className="p-1 rounded hover:bg-muted transition-colors"
+                  title="Pause timer"
+                >
                   <Pause className="w-3.5 h-3.5 text-primary" />
-                ) : (
+                </button>
+              ) : (
+                <button
+                  onClick={() => onFocusStart(task.id)}
+                  className="p-1 rounded hover:bg-muted transition-colors"
+                  title="Start Focus Mode"
+                >
                   <Play className="w-3.5 h-3.5 text-muted-foreground" />
-                )}
-              </button>
+                </button>
+              )}
             </div>
           )}
 
@@ -237,6 +246,7 @@ function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, time
               onTimeUpdate={onTimeUpdate}
               timerState={timerState}
               onTimerToggle={onTimerToggle}
+              onFocusStart={onFocusStart}
               onAddSubtask={onAddSubtask}
               subtasks={allTasks.filter(t => t.parent_task_id === subtask.id)}
               allTasks={allTasks}
@@ -249,6 +259,7 @@ function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, time
 }
 
 export default function Tasks() {
+  const navigate = useNavigate();
   const { tasks, loading, addTask, updateTask, deleteTask } = useTasks();
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -366,6 +377,10 @@ export default function Tasks() {
     }));
   };
 
+  const handleFocusStart = (taskId: string) => {
+    navigate(`/focus?task=${taskId}`);
+  };
+
   const handleTimeUpdate = async (taskId: string, time: number) => {
     await updateTask(taskId, { actual_time: time });
   };
@@ -463,6 +478,7 @@ export default function Tasks() {
                 onTimeUpdate={handleTimeUpdate}
                 timerState={timerState}
                 onTimerToggle={handleTimerToggle}
+                onFocusStart={handleFocusStart}
                 onAddSubtask={handleAddSubtask}
                 subtasks={getSubtasks(task.id)}
                 allTasks={displayTasks}
