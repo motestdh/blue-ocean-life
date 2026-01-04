@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2, Bot, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   actions?: any[];
+  timestamp?: Date;
 }
 
 export function AIChatButton() {
@@ -19,23 +20,36 @@ export function AIChatButton() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { language, aiEnabled } = useAppStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isLoading]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = Math.min(scrollHeight, 120) + 'px';
+    }
+  }, [input]);
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { role: 'user', content: userMessage, timestamp: new Date() }]);
     setIsLoading(true);
+    setLoadingAction(null);
 
     try {
       // Try Gemini first (user's own API key)
@@ -50,7 +64,8 @@ export function AIChatButton() {
         setMessages(prev => [...prev, { 
           role: 'assistant', 
           content: geminiData.response,
-          actions: geminiData.actions 
+          actions: geminiData.actions,
+          timestamp: new Date()
         }]);
         
         // Show action confirmations
@@ -74,7 +89,8 @@ export function AIChatButton() {
             role: 'assistant',
             content: language === 'ar'
               ? '⚙️ للتحكم بالذكاء الاصطناعي، أضف/تحقق من مفتاح OpenRouter API في الإعدادات ← تكامل الذكاء الاصطناعي.'
-              : '⚙️ To use AI, add/check your OpenRouter API key in Settings → AI Integration.'
+              : '⚙️ To use AI, add/check your OpenRouter API key in Settings → AI Integration.',
+            timestamp: new Date()
           }]);
           return;
         }
@@ -105,16 +121,18 @@ export function AIChatButton() {
         return;
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.response, timestamp: new Date() }]);
     } catch (err) {
       console.error('AI chat error:', err);
       toast.error(language === 'ar' ? 'فشل الحصول على رد' : 'Failed to get response');
     } finally {
       setIsLoading(false);
+      setLoadingAction(null);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Enter sends, Shift+Enter adds new line
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -123,6 +141,14 @@ export function AIChatButton() {
 
   const clearChat = () => {
     setMessages([]);
+  };
+
+  const formatTime = (date?: Date) => {
+    if (!date) return '';
+    return date.toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (!aiEnabled) return null;
@@ -145,7 +171,7 @@ export function AIChatButton() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[400px] h-[550px] bg-card border border-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-scale-in">
+        <div className="fixed bottom-6 right-6 w-[450px] h-[620px] bg-card border border-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-scale-in">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border bg-muted/50">
             <div className="flex items-center gap-3">
@@ -180,10 +206,10 @@ export function AIChatButton() {
                   <p className="font-medium mb-2">
                     {language === 'ar' ? 'مرحباً! كيف يمكنني مساعدتك؟' : 'Hello! How can I help you?'}
                   </p>
-                  <div className="text-xs space-y-1 max-w-[280px] mx-auto">
+                  <div className="text-xs space-y-1 max-w-[300px] mx-auto">
                     <p>{language === 'ar' ? 'جرب أن تقول:' : 'Try saying:'}</p>
                     <p className="text-primary/80">"{language === 'ar' ? 'أضف مهمة جديدة: مراجعة التقرير' : 'Add a new task: Review report'}"</p>
-                    <p className="text-primary/80">"{language === 'ar' ? 'أظهر لي مهامي اليوم' : 'Show me my tasks for today'}"</p>
+                    <p className="text-primary/80">"{language === 'ar' ? 'أضف كورس German A1 مع الدروس' : 'Add course German A1 with lessons'}"</p>
                     <p className="text-primary/80">"{language === 'ar' ? 'أضف نفقة 50 دولار للطعام' : 'Add expense $50 for food'}"</p>
                   </div>
                 </div>
@@ -192,8 +218,8 @@ export function AIChatButton() {
                 <div
                   key={i}
                   className={cn(
-                    "flex",
-                    msg.role === 'user' ? 'justify-end' : 'justify-start'
+                    "flex flex-col",
+                    msg.role === 'user' ? 'items-end' : 'items-start'
                   )}
                 >
                   <div
@@ -218,37 +244,54 @@ export function AIChatButton() {
                       </div>
                     )}
                   </div>
+                  {msg.timestamp && (
+                    <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                      {formatTime(msg.timestamp)}
+                    </span>
+                  )}
                 </div>
               ))}
               {isLoading && (
-                <div className="flex justify-start">
+                <div className="flex flex-col items-start">
                   <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-md">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {loadingAction || (language === 'ar' ? 'جاري المعالجة...' : 'Processing...')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
+              <div ref={bottomRef} />
             </div>
           </ScrollArea>
 
           {/* Input */}
           <div className="p-4 border-t border-border">
-            <div className="flex gap-2">
-              <Input
+            <div className="flex gap-2 items-end">
+              <Textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
                 placeholder={language === 'ar' ? 'اكتب أمرًا أو سؤالًا...' : 'Type a command or question...'}
-                className="flex-1"
+                className="flex-1 min-h-[44px] max-h-[120px] resize-none py-3"
                 disabled={isLoading}
+                rows={1}
               />
               <Button 
                 onClick={sendMessage} 
                 size="icon" 
+                className="h-[44px] w-[44px] shrink-0"
                 disabled={!input.trim() || isLoading}
               >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center">
+              {language === 'ar' ? 'اضغط Enter للإرسال، Shift+Enter لسطر جديد' : 'Press Enter to send, Shift+Enter for new line'}
+            </p>
           </div>
         </div>
       )}

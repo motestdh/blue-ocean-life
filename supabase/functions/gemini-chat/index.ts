@@ -12,7 +12,7 @@ const tools = [
     type: "function",
     function: {
       name: "manage_tasks",
-      description: "Create, update, delete, list, or complete tasks",
+      description: "Create, update, delete, list, or complete tasks. Use this for work items and to-do lists.",
       parameters: {
         type: "object",
         properties: {
@@ -23,7 +23,7 @@ const tools = [
           status: { type: "string", enum: ["todo", "in-progress", "completed"] },
           priority: { type: "string", enum: ["low", "medium", "high"] },
           due_date: { type: "string", description: "Due date in YYYY-MM-DD format" },
-          project_id: { type: "string", description: "Project ID to link task to" },
+          project_id: { type: "string", description: "Project UUID to link task to (must be a valid UUID from search_project)" },
         },
         required: ["action"],
       },
@@ -32,8 +32,22 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "search_project",
+      description: "Search for a project by name to get its UUID. ALWAYS use this before adding tasks to a specific project.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Project name or partial name to search for" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "manage_projects",
-      description: "Create, update, delete, or list projects",
+      description: "Create, update, delete, or list work/personal projects. NOT for courses - use manage_courses for learning.",
       parameters: {
         type: "object",
         properties: {
@@ -115,7 +129,7 @@ const tools = [
     type: "function",
     function: {
       name: "manage_courses",
-      description: "Create, update, delete, or list learning courses",
+      description: "Create, update, delete, or list LEARNING courses. This is for education/learning, NOT work projects.",
       parameters: {
         type: "object",
         properties: {
@@ -136,16 +150,17 @@ const tools = [
     type: "function",
     function: {
       name: "manage_lessons",
-      description: "Create, update, delete, list, or complete lessons within a course",
+      description: "Create, update, delete, list, or complete lessons within a course. Requires a valid course UUID.",
       parameters: {
         type: "object",
         properties: {
           action: { type: "string", enum: ["create", "update", "delete", "list", "complete"] },
           lesson_id: { type: "string", description: "Lesson ID (required for update, delete, complete)" },
-          course_id: { type: "string", description: "Course ID (required for create, list)" },
+          course_id: { type: "string", description: "Course UUID (required for create, list) - must be real UUID from manage_courses" },
           title: { type: "string", description: "Lesson title" },
           description: { type: "string", description: "Lesson description" },
           duration_minutes: { type: "number", description: "Duration in minutes" },
+          section: { type: "string", description: "Section or module name (e.g., 'Basics', 'Grammar', 'Advanced')" },
         },
         required: ["action"],
       },
@@ -238,6 +253,8 @@ async function executeTool(
     switch (toolName) {
       case "manage_tasks":
         return await handleTasks(supabase, userId, args);
+      case "search_project":
+        return await handleSearchProject(supabase, userId, args);
       case "manage_projects":
         return await handleProjects(supabase, userId, args);
       case "manage_notes":
@@ -266,6 +283,45 @@ async function executeTool(
     const errorMessage = error instanceof Error ? error.message : "An error occurred";
     return { success: false, message: errorMessage };
   }
+}
+
+// Search project by name
+async function handleSearchProject(supabase: any, userId: string, args: any) {
+  const { name } = args;
+  
+  if (!name) {
+    return { success: false, message: "Project name is required to search" };
+  }
+  
+  const { data: projects, error } = await supabase
+    .from("projects")
+    .select("id, title, status")
+    .eq("user_id", userId)
+    .ilike("title", `%${name}%`)
+    .limit(5);
+    
+  if (error) throw error;
+  
+  if (!projects || projects.length === 0) {
+    return { 
+      success: false, 
+      message: `No project found matching "${name}". Available projects can be listed with manage_projects action: list.` 
+    };
+  }
+  
+  if (projects.length === 1) {
+    return { 
+      success: true, 
+      message: `Found project: "${projects[0].title}" with ID: ${projects[0].id}`,
+      data: projects[0]
+    };
+  }
+  
+  return { 
+    success: true, 
+    message: `Found ${projects.length} projects matching "${name}"`,
+    data: projects
+  };
 }
 
 // Handler functions for each entity
@@ -368,7 +424,7 @@ async function handleProjects(supabase: any, userId: string, args: any) {
         .select()
         .single();
       if (createError) throw createError;
-      return { success: true, message: `Created project: "${newProject.title}"`, data: newProject };
+      return { success: true, message: `Created project: "${newProject.title}" with ID: ${newProject.id}`, data: newProject };
 
     case "update":
       if (!project_id) return { success: false, message: "Project ID is required to update" };
@@ -463,9 +519,12 @@ async function handleNotes(supabase: any, userId: string, args: any) {
       return { success: true, message: "Note deleted successfully" };
 
     case "list":
-      let query = supabase.from("notes").select("*").eq("user_id", userId);
-      if (folder) query = query.eq("folder", folder);
-      const { data: notes, error: listError } = await query.order("created_at", { ascending: false }).limit(20);
+      const { data: notes, error: listError } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(20);
       if (listError) throw listError;
       return { success: true, message: `Found ${notes.length} notes`, data: notes };
 
@@ -487,8 +546,8 @@ async function handleHabits(supabase: any, userId: string, args: any) {
           name,
           description: description || "",
           frequency: frequency || "daily",
-          color: color || "#10b981",
-          icon: icon || "✓",
+          color: color || "#3B82F6",
+          icon: icon || "⭐",
         })
         .select()
         .single();
@@ -543,7 +602,7 @@ async function handleHabits(supabase: any, userId: string, args: any) {
           .from("habit_completions")
           .delete()
           .eq("id", existing.id);
-        return { success: true, message: "Habit marked as incomplete for today" };
+        return { success: true, message: "Habit unmarked for today" };
       } else {
         // Add completion
         await supabase
@@ -553,7 +612,7 @@ async function handleHabits(supabase: any, userId: string, args: any) {
             user_id: userId,
             completed_date: today,
           });
-        return { success: true, message: "Habit completed for today!" };
+        return { success: true, message: "Habit marked as complete for today! 🎉" };
       }
 
     case "list":
@@ -578,7 +637,7 @@ async function handleTransactions(supabase: any, userId: string, args: any) {
       if (!type || !amount || !category) {
         return { success: false, message: "Type, amount, and category are required" };
       }
-      const { data: newTx, error: createError } = await supabase
+      const { data: newTransaction, error: createError } = await supabase
         .from("transactions")
         .insert({
           user_id: userId,
@@ -588,11 +647,16 @@ async function handleTransactions(supabase: any, userId: string, args: any) {
           description: description || "",
           date: date || new Date().toISOString().split("T")[0],
           currency: currency || "USD",
+          status: "paid",
         })
         .select()
         .single();
       if (createError) throw createError;
-      return { success: true, message: `Created ${type}: ${amount} ${currency || "USD"} for ${category}`, data: newTx };
+      return { 
+        success: true, 
+        message: `Added ${type}: ${amount} ${currency || "USD"} for ${category}`, 
+        data: newTransaction 
+      };
 
     case "update":
       if (!transaction_id) return { success: false, message: "Transaction ID is required to update" };
@@ -604,7 +668,7 @@ async function handleTransactions(supabase: any, userId: string, args: any) {
       if (date) updates.date = date;
       if (currency) updates.currency = currency;
       
-      const { data: updatedTx, error: updateError } = await supabase
+      const { data: updatedTransaction, error: updateError } = await supabase
         .from("transactions")
         .update(updates)
         .eq("id", transaction_id)
@@ -612,7 +676,7 @@ async function handleTransactions(supabase: any, userId: string, args: any) {
         .select()
         .single();
       if (updateError) throw updateError;
-      return { success: true, message: "Transaction updated", data: updatedTx };
+      return { success: true, message: "Transaction updated", data: updatedTransaction };
 
     case "delete":
       if (!transaction_id) return { success: false, message: "Transaction ID is required to delete" };
@@ -627,8 +691,9 @@ async function handleTransactions(supabase: any, userId: string, args: any) {
     case "list":
       let query = supabase.from("transactions").select("*").eq("user_id", userId);
       if (type) query = query.eq("type", type);
-      if (category) query = query.eq("category", category);
-      const { data: transactions, error: listError } = await query.order("date", { ascending: false }).limit(20);
+      const { data: transactions, error: listError } = await query
+        .order("date", { ascending: false })
+        .limit(20);
       if (listError) throw listError;
       return { success: true, message: `Found ${transactions.length} transactions`, data: transactions };
 
@@ -648,16 +713,20 @@ async function handleCourses(supabase: any, userId: string, args: any) {
         .insert({
           user_id: userId,
           title,
-          platform: platform || "",
-          instructor: instructor || "",
+          platform: platform || null,
+          instructor: instructor || null,
           status: status || "not-started",
-          notes: notes || "",
+          notes: notes || null,
           target_date: target_date || null,
         })
         .select()
         .single();
       if (createError) throw createError;
-      return { success: true, message: `Created course: "${newCourse.title}"`, data: newCourse };
+      return { 
+        success: true, 
+        message: `Created course: "${newCourse.title}" with ID: ${newCourse.id}. Use this ID to add lessons.`, 
+        data: newCourse 
+      };
 
     case "update":
       if (!course_id) return { success: false, message: "Course ID is required to update" };
@@ -667,7 +736,7 @@ async function handleCourses(supabase: any, userId: string, args: any) {
       if (instructor !== undefined) updates.instructor = instructor;
       if (status) updates.status = status;
       if (notes !== undefined) updates.notes = notes;
-      if (target_date) updates.target_date = target_date;
+      if (target_date !== undefined) updates.target_date = target_date;
       
       const { data: updatedCourse, error: updateError } = await supabase
         .from("courses")
@@ -681,18 +750,22 @@ async function handleCourses(supabase: any, userId: string, args: any) {
 
     case "delete":
       if (!course_id) return { success: false, message: "Course ID is required to delete" };
+      // Delete lessons first
+      await supabase.from("lessons").delete().eq("course_id", course_id);
       const { error: deleteError } = await supabase
         .from("courses")
         .delete()
         .eq("id", course_id)
         .eq("user_id", userId);
       if (deleteError) throw deleteError;
-      return { success: true, message: "Course deleted successfully" };
+      return { success: true, message: "Course and its lessons deleted successfully" };
 
     case "list":
-      let query = supabase.from("courses").select("*").eq("user_id", userId);
-      if (status) query = query.eq("status", status);
-      const { data: courses, error: listError } = await query.order("created_at", { ascending: false });
+      const { data: courses, error: listError } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
       if (listError) throw listError;
       return { success: true, message: `Found ${courses.length} courses`, data: courses };
 
@@ -702,24 +775,55 @@ async function handleCourses(supabase: any, userId: string, args: any) {
 }
 
 async function handleLessons(supabase: any, userId: string, args: any) {
-  const { action, lesson_id, course_id, title, description, duration_minutes } = args;
+  const { action, lesson_id, course_id, title, description, duration_minutes, section } = args;
 
   switch (action) {
     case "create":
-      if (!title || !course_id) return { success: false, message: "Title and course_id are required" };
+      if (!course_id) return { success: false, message: "Course ID is required to create a lesson" };
+      if (!title) return { success: false, message: "Title is required to create a lesson" };
+      
+      // Validate course exists and belongs to user
+      const { data: course, error: courseError } = await supabase
+        .from("courses")
+        .select("id, title")
+        .eq("id", course_id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (courseError || !course) {
+        return { success: false, message: `Course not found with ID: ${course_id}. Please use a valid course UUID.` };
+      }
+      
+      // Get max sort order
+      const { data: existingLessons } = await supabase
+        .from("lessons")
+        .select("sort_order")
+        .eq("course_id", course_id)
+        .order("sort_order", { ascending: false })
+        .limit(1);
+      
+      const nextOrder = (existingLessons?.[0]?.sort_order || 0) + 1;
+      
       const { data: newLesson, error: createError } = await supabase
         .from("lessons")
         .insert({
           user_id: userId,
           course_id,
           title,
-          description: description || "",
+          description: description || null,
           duration_minutes: duration_minutes || null,
+          section: section || null,
+          sort_order: nextOrder,
+          is_completed: false,
         })
         .select()
         .single();
       if (createError) throw createError;
-      return { success: true, message: `Created lesson: "${newLesson.title}"`, data: newLesson };
+      return { 
+        success: true, 
+        message: `Added lesson "${newLesson.title}" to course "${course.title}"${section ? ` in section "${section}"` : ''}`, 
+        data: newLesson 
+      };
 
     case "update":
       if (!lesson_id) return { success: false, message: "Lesson ID is required to update" };
@@ -727,6 +831,7 @@ async function handleLessons(supabase: any, userId: string, args: any) {
       if (title) updates.title = title;
       if (description !== undefined) updates.description = description;
       if (duration_minutes !== undefined) updates.duration_minutes = duration_minutes;
+      if (section !== undefined) updates.section = section;
       
       const { data: updatedLesson, error: updateError } = await supabase
         .from("lessons")
@@ -752,20 +857,22 @@ async function handleLessons(supabase: any, userId: string, args: any) {
       if (!lesson_id) return { success: false, message: "Lesson ID is required to complete" };
       const { data: completedLesson, error: completeError } = await supabase
         .from("lessons")
-        .update({ is_completed: true, completed_at: new Date().toISOString() })
+        .update({ 
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        })
         .eq("id", lesson_id)
         .eq("user_id", userId)
         .select()
         .single();
       if (completeError) throw completeError;
-      return { success: true, message: `Completed lesson: "${completedLesson.title}"`, data: completedLesson };
+      return { success: true, message: `Completed lesson: "${completedLesson.title}" 🎉`, data: completedLesson };
 
     case "list":
       if (!course_id) return { success: false, message: "Course ID is required to list lessons" };
       const { data: lessons, error: listError } = await supabase
         .from("lessons")
         .select("*")
-        .eq("user_id", userId)
         .eq("course_id", course_id)
         .order("sort_order", { ascending: true });
       if (listError) throw listError;
@@ -789,7 +896,7 @@ async function handleMoviesSeries(supabase: any, userId: string, args: any) {
           name,
           type: type || "movie",
           status: status || "to-watch",
-          description: description || "",
+          description: description || null,
         })
         .select()
         .single();
@@ -850,7 +957,7 @@ async function handleBooksPodcasts(supabase: any, userId: string, args: any) {
           name,
           type: type || "book",
           status: status || "to-consume",
-          url: url || "",
+          url: url || null,
         })
         .select()
         .single();
@@ -909,11 +1016,11 @@ async function handleClients(supabase: any, userId: string, args: any) {
         .insert({
           user_id: userId,
           name,
-          email: email || "",
-          phone: phone || "",
-          company: company || "",
+          email: email || null,
+          phone: phone || null,
+          company: company || null,
           status: status || "lead",
-          notes: notes || "",
+          notes: notes || null,
         })
         .select()
         .single();
@@ -951,9 +1058,11 @@ async function handleClients(supabase: any, userId: string, args: any) {
       return { success: true, message: "Client deleted successfully" };
 
     case "list":
-      let query = supabase.from("clients").select("*").eq("user_id", userId);
-      if (status) query = query.eq("status", status);
-      const { data: clients, error: listError } = await query.order("created_at", { ascending: false });
+      const { data: clients, error: listError } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
       if (listError) throw listError;
       return { success: true, message: `Found ${clients.length} clients`, data: clients };
 
@@ -964,33 +1073,31 @@ async function handleClients(supabase: any, userId: string, args: any) {
 
 async function handleSummary(supabase: any, userId: string, args: any) {
   const { type, period } = args;
-  const today = new Date();
-  let startDate: string;
+  
+  let startDate: string | null = null;
+  const now = new Date();
   
   if (period === "today") {
-    startDate = today.toISOString().split("T")[0];
+    startDate = now.toISOString().split("T")[0];
   } else if (period === "week") {
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     startDate = weekAgo.toISOString().split("T")[0];
-  } else {
-    const monthAgo = new Date(today);
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
+  } else if (period === "month") {
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     startDate = monthAgo.toISOString().split("T")[0];
   }
 
   const summary: any = {};
 
   if (type === "all" || type === "tasks") {
-    const { data: tasks } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("created_at", startDate);
+    let query = supabase.from("tasks").select("*").eq("user_id", userId);
+    if (startDate) query = query.gte("created_at", startDate);
+    const { data: tasks } = await query;
     summary.tasks = {
       total: tasks?.length || 0,
       completed: tasks?.filter((t: any) => t.status === "completed").length || 0,
-      pending: tasks?.filter((t: any) => t.status !== "completed").length || 0,
+      inProgress: tasks?.filter((t: any) => t.status === "in-progress").length || 0,
+      todo: tasks?.filter((t: any) => t.status === "todo").length || 0,
     };
   }
 
@@ -1085,25 +1192,46 @@ serve(async (req) => {
 
     const { message, conversationHistory } = await req.json();
 
-    // Build system prompt
-    const systemPrompt = `You are an AI assistant for LifeOS, a personal life management application. You can help users manage their:
-- Tasks (create, update, delete, complete, list)
-- Projects (create, update, delete, list)
-- Notes (create, update, delete, list)
-- Habits (create, update, delete, toggle completion)
-- Financial Transactions (income/expenses)
-- Learning Courses and Lessons
-- Movies & Series watchlist
-- Books & Podcasts
-- Clients
+    // Build system prompt with strict rules
+    const systemPrompt = `You are an AI assistant for LifeOS, a personal life management application. You help users manage their tasks, projects, courses, habits, finances, and more.
 
-When the user asks to perform an action, use the appropriate function. Be helpful, concise, and confirm actions after completing them.
-If listing items, summarize them nicely. For dates, today is ${new Date().toISOString().split("T")[0]}.
+CRITICAL RULES:
+1. COURSES vs PROJECTS: A course is for LEARNING (use manage_courses). A project is for WORK/PERSONAL projects (use manage_projects). NEVER confuse them.
+   - "أضف كورس" or "add course" → manage_courses ONLY
+   - "أضف مشروع" or "add project" → manage_projects ONLY
+   
+2. MULTI-STEP OPERATIONS: When creating a course with lessons:
+   - First create the course using manage_courses
+   - The response will contain the course UUID (like "abc123-...")
+   - Then use that EXACT UUID as course_id when calling manage_lessons for each lesson
+   - DO NOT invent fake IDs - always use real UUIDs from previous responses
+   
+3. TASKS ON PROJECTS: When user wants to add a task to a specific project:
+   - First call search_project with the project name
+   - Use the returned project UUID as project_id in manage_tasks
+   - If project not found, inform the user
 
+4. ONLY do what the user asks. Do not assume extra actions.
+
+Available tools:
+- manage_tasks: Create/update/delete/list/complete tasks
+- search_project: Find a project by name to get its UUID
+- manage_projects: Create/update/delete/list work projects
+- manage_courses: Create/update/delete/list learning courses
+- manage_lessons: Create/update/delete/list/complete lessons (requires course_id)
+- manage_notes: Create/update/delete/list notes
+- manage_habits: Create/update/delete/list/toggle habits
+- manage_transactions: Create/update/delete/list income/expenses
+- manage_movies_series: Manage watchlist
+- manage_books_podcasts: Manage reading list
+- manage_clients: Manage clients
+- get_summary: Get summaries for tasks/projects/habits/transactions
+
+Today's date: ${new Date().toISOString().split("T")[0]}
 Answer in the same language as the user's message (Arabic or English).`;
 
     // Build messages array for OpenAI-compatible format
-    const messages: Array<{role: string; content: string}> = [
+    const messages: Array<any> = [
       { role: "system", content: systemPrompt },
     ];
 
@@ -1120,81 +1248,103 @@ Answer in the same language as the user's message (Arabic or English).`;
     // Add current message
     messages.push({ role: "user", content: message });
 
-    // Call OpenRouter API with DeepSeek Chat (supports tool calling)
-    console.log("Calling OpenRouter with DeepSeek Chat...");
-    const openrouterResponse = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${profile.gemini_api_key}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://lifeos.app",
-          "X-Title": "LifeOS",
-        },
-        body: JSON.stringify({
-          model: "deepseek/deepseek-chat",
-          messages,
-          tools,
-          tool_choice: "auto",
-        }),
-      }
-    );
+    const apiKey = profile.gemini_api_key;
+    const model = "deepseek/deepseek-chat";
+    
+    // Multi-turn tool calling loop
+    let maxIterations = 10; // Prevent infinite loops
+    let iteration = 0;
+    let allExecutedActions: any[] = [];
+    let finalResponse = "";
 
-    if (!openrouterResponse.ok) {
-      const errorText = await openrouterResponse.text();
-      console.error("OpenRouter API error:", openrouterResponse.status, errorText);
-
-      let parsed: any = null;
-      try {
-        parsed = JSON.parse(errorText);
-      } catch {
-        // ignore
-      }
-
-      const apiCode = parsed?.error?.code ?? openrouterResponse.status;
-      const apiMessage = parsed?.error?.message ?? errorText;
-
-      if (openrouterResponse.status === 429) {
-        return new Response(
-          JSON.stringify({
-            error: "Rate limit exceeded. Please try again in a moment.",
-            code: 429,
+    while (iteration < maxIterations) {
+      iteration++;
+      console.log(`Tool calling iteration ${iteration}...`);
+      
+      const openrouterResponse = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://lifeos.app",
+            "X-Title": "LifeOS",
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            tools,
+            tool_choice: "auto",
           }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (openrouterResponse.status === 401 || openrouterResponse.status === 403) {
-        return new Response(
-          JSON.stringify({ 
-            error: "Invalid OpenRouter API key. Please check your key in Settings.", 
-            code: openrouterResponse.status 
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: `OpenRouter API error: ${apiCode} - ${apiMessage}`, code: apiCode }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        }
       );
-    }
 
-    const openrouterData = await openrouterResponse.json();
-    console.log("OpenRouter response:", JSON.stringify(openrouterData, null, 2));
+      if (!openrouterResponse.ok) {
+        const errorText = await openrouterResponse.text();
+        console.error("OpenRouter API error:", openrouterResponse.status, errorText);
 
-    const choice = openrouterData.choices?.[0];
-    if (!choice) {
-      throw new Error("No response from OpenRouter");
-    }
+        let parsed: any = null;
+        try {
+          parsed = JSON.parse(errorText);
+        } catch {
+          // ignore
+        }
 
-    let responseText = choice.message?.content || "";
-    const executedActions: any[] = [];
+        const apiCode = parsed?.error?.code ?? openrouterResponse.status;
+        const apiMessage = parsed?.error?.message ?? errorText;
 
-    // Process tool calls if any
-    const toolCalls = choice.message?.tool_calls;
-    if (toolCalls && toolCalls.length > 0) {
+        if (openrouterResponse.status === 429) {
+          return new Response(
+            JSON.stringify({
+              error: "Rate limit exceeded. Please try again in a moment.",
+              code: 429,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (openrouterResponse.status === 401 || openrouterResponse.status === 403) {
+          return new Response(
+            JSON.stringify({ 
+              error: "Invalid OpenRouter API key. Please check your key in Settings.", 
+              code: openrouterResponse.status 
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ error: `OpenRouter API error: ${apiCode} - ${apiMessage}`, code: apiCode }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const openrouterData = await openrouterResponse.json();
+      console.log(`Iteration ${iteration} response:`, JSON.stringify(openrouterData, null, 2));
+
+      const choice = openrouterData.choices?.[0];
+      if (!choice) {
+        throw new Error("No response from OpenRouter");
+      }
+
+      const assistantMessage = choice.message;
+      const toolCalls = assistantMessage?.tool_calls;
+
+      // If no tool calls, we have the final response
+      if (!toolCalls || toolCalls.length === 0) {
+        finalResponse = assistantMessage?.content || "";
+        break;
+      }
+
+      // Add assistant message with tool calls to history
+      messages.push({
+        role: "assistant",
+        content: assistantMessage.content || null,
+        tool_calls: toolCalls,
+      });
+
+      // Execute each tool call and add results
       for (const toolCall of toolCalls) {
         const functionName = toolCall.function?.name;
         let functionArgs = {};
@@ -1208,59 +1358,28 @@ Answer in the same language as the user's message (Arabic or English).`;
         console.log(`Executing function: ${functionName} with args:`, functionArgs);
         
         const result = await executeTool(supabase, user.id, functionName, functionArgs);
-        executedActions.push({ function: functionName, result });
+        allExecutedActions.push({ function: functionName, args: functionArgs, result });
 
-        // Get follow-up response after tool execution
-        const followUpMessages = [
-          ...messages,
-          { 
-            role: "assistant", 
-            content: null,
-            tool_calls: [toolCall]
-          },
-          { 
-            role: "tool", 
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result)
-          },
-        ];
-
-        const followUpResponse = await fetch(
-          "https://openrouter.ai/api/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${profile.gemini_api_key}`,
-              "Content-Type": "application/json",
-              "HTTP-Referer": "https://lifeos.app",
-              "X-Title": "LifeOS",
-            },
-            body: JSON.stringify({
-              model: "deepseek/deepseek-r1-0528:free",
-              messages: followUpMessages,
-            }),
-          }
-        );
-
-        if (followUpResponse.ok) {
-          const followUpData = await followUpResponse.json();
-          const followUpText = followUpData.choices?.[0]?.message?.content;
-          if (followUpText) {
-            responseText = followUpText;
-          }
-        }
+        // Add tool result to messages
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
+        });
       }
     }
 
     // If no text response, create one from actions
-    if (!responseText && executedActions.length > 0) {
-      responseText = executedActions.map(a => a.result.message).join("\n");
+    if (!finalResponse && allExecutedActions.length > 0) {
+      finalResponse = allExecutedActions
+        .map(a => a.result.success ? `✓ ${a.result.message}` : `✗ ${a.result.message}`)
+        .join("\n");
     }
 
     return new Response(
       JSON.stringify({ 
-        response: responseText || "I couldn't process that request. Please try again.",
-        actions: executedActions,
+        response: finalResponse || "I couldn't process that request. Please try again.",
+        actions: allExecutedActions,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
