@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, LayoutGrid, List, Loader2, GripVertical, CalendarIcon, Tag, Edit2 } from 'lucide-react';
+import { Plus, Search, Filter, LayoutGrid, List, Loader2, GripVertical, CalendarIcon, Tag, Edit2, Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects } from '@/hooks/useProjects';
+import { useUserCategories } from '@/hooks/useUserCategories';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
@@ -39,14 +40,13 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   rectSortingStrategy,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-
-const DEFAULT_CATEGORIES = ['General', 'Development', 'Design', 'Marketing', 'Personal', 'Research'];
 
 type Project = Database['public']['Tables']['projects']['Row'];
 
@@ -64,14 +64,81 @@ const priorityColors: Record<string, string> = {
   low: 'border-l-priority-low',
 };
 
+// Sortable category item
+function SortableCategoryItem({ 
+  category, 
+  onEdit, 
+  onDelete 
+}: { 
+  category: { id: string; name: string; color: string }; 
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-center gap-2 p-2 rounded-lg bg-muted/50 group',
+        isDragging && 'opacity-50 shadow-lg'
+      )}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <div 
+        className="w-3 h-3 rounded-full" 
+        style={{ backgroundColor: category.color }}
+      />
+      <span className="flex-1 text-sm">{category.name}</span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+        onClick={onEdit}
+      >
+        <Edit2 className="w-3 h-3" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
+        onClick={onDelete}
+      >
+        <Trash2 className="w-3 h-3" />
+      </Button>
+    </div>
+  );
+}
+
 function SortableProjectCard({ 
   project, 
   onClick, 
-  onCategoryChange 
+  onCategoryChange,
+  categories
 }: { 
   project: Project; 
   onClick: () => void;
   onCategoryChange: (id: string, category: string) => void;
+  categories: { id: string; name: string }[];
 }) {
   const [editingCategory, setEditingCategory] = useState(false);
   const {
@@ -133,8 +200,8 @@ function SortableProjectCard({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {DEFAULT_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -184,10 +251,15 @@ function SortableProjectCard({
 export default function Projects() {
   const navigate = useNavigate();
   const { projects, loading, addProject, updateProject } = useProjects();
+  const { categories: userCategories, loading: catsLoading, addCategory, updateCategory, deleteCategory, reorderCategories } = useUserCategories();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<{ id: string; name: string; color: string } | null>(null);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#0EA5E9');
   const [localProjects, setLocalProjects] = useState<Project[]>([]);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [newProject, setNewProject] = useState({
@@ -198,6 +270,10 @@ export default function Projects() {
     due_date: new Date(),
     category: 'General',
   });
+
+  const categorySensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -211,18 +287,23 @@ export default function Projects() {
   );
 
   // Sync local projects with fetched projects
-  if (projects.length > 0 && localProjects.length === 0) {
-    setLocalProjects(projects);
-  }
+  useEffect(() => {
+    if (projects.length > 0) {
+      setLocalProjects(projects);
+    }
+  }, [projects]);
 
   const displayProjects = localProjects.length > 0 ? localProjects : projects;
 
-  // Get unique categories from projects
-  const allCategories = useMemo(() => {
-    const cats = new Set(displayProjects.map(p => (p as any).category || 'General'));
-    DEFAULT_CATEGORIES.forEach(c => cats.add(c));
-    return ['all', ...Array.from(cats)];
-  }, [displayProjects]);
+  // Get categories - user categories + default "General"
+  const categoryList = useMemo(() => {
+    const baseCategories = [{ id: 'general', name: 'General', color: '#6B7280' }];
+    return [...baseCategories, ...userCategories];
+  }, [userCategories]);
+
+  const allCategoryNames = useMemo(() => {
+    return ['all', ...categoryList.map(c => c.name)];
+  }, [categoryList]);
 
   const filteredProjects = displayProjects.filter((project) => {
     const matchesSearch = project.title.toLowerCase().includes(search.toLowerCase());
@@ -375,8 +456,8 @@ export default function Projects() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DEFAULT_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    {categoryList.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -415,20 +496,115 @@ export default function Projects() {
         </DialogContent>
       </Dialog>
 
-      {/* Category Tabs */}
-      <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="w-full">
-        <TabsList className="w-full justify-start overflow-x-auto bg-muted/50 h-auto p-1 flex-wrap">
-          {allCategories.map((cat) => (
-            <TabsTrigger 
-              key={cat} 
-              value={cat}
-              className="capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+      {/* Category Tabs with Manage Button */}
+      <div className="flex items-center gap-2">
+        <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="flex-1">
+          <TabsList className="w-full justify-start overflow-x-auto bg-muted/50 h-auto p-1 flex-wrap">
+            {allCategoryNames.map((cat) => (
+              <TabsTrigger 
+                key={cat} 
+                value={cat}
+                className="capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                {cat === 'all' ? 'All Categories' : cat}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={() => setCategoryDialogOpen(true)}
+        >
+          <Settings2 className="w-4 h-4" />
+          Manage
+        </Button>
+      </div>
+
+      {/* Category Management Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Categories</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {/* Add new category */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="New category name"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                className="flex-1"
+              />
+              <input
+                type="color"
+                value={newCatColor}
+                onChange={(e) => setNewCatColor(e.target.value)}
+                className="w-10 h-10 rounded cursor-pointer"
+              />
+              <Button
+                onClick={async () => {
+                  if (!newCatName.trim()) return;
+                  if (editingCat) {
+                    await updateCategory(editingCat.id, { name: newCatName, color: newCatColor });
+                    setEditingCat(null);
+                  } else {
+                    await addCategory(newCatName, newCatColor);
+                  }
+                  setNewCatName('');
+                  setNewCatColor('#0EA5E9');
+                  toast({ title: 'Success', description: editingCat ? 'Category updated' : 'Category added' });
+                }}
+              >
+                {editingCat ? 'Update' : 'Add'}
+              </Button>
+            </div>
+
+            {/* Category list with drag and drop */}
+            <DndContext
+              sensors={categorySensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => {
+                const { active, over } = event;
+                if (over && active.id !== over.id) {
+                  const oldIndex = userCategories.findIndex(c => c.id === active.id);
+                  const newIndex = userCategories.findIndex(c => c.id === over.id);
+                  const newOrder = arrayMove(userCategories, oldIndex, newIndex);
+                  reorderCategories(newOrder);
+                }
+              }}
             >
-              {cat === 'all' ? 'All Categories' : cat}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+              <SortableContext items={userCategories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {/* Fixed General category */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 opacity-60">
+                    <div className="w-4" />
+                    <div className="w-3 h-3 rounded-full bg-gray-500" />
+                    <span className="flex-1 text-sm">General (default)</span>
+                  </div>
+                  
+                  {userCategories.map((cat) => (
+                    <SortableCategoryItem
+                      key={cat.id}
+                      category={cat}
+                      onEdit={() => {
+                        setEditingCat(cat);
+                        setNewCatName(cat.name);
+                        setNewCatColor(cat.color);
+                      }}
+                      onDelete={async () => {
+                        await deleteCategory(cat.id);
+                        toast({ title: 'Deleted', description: 'Category removed' });
+                      }}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
@@ -494,6 +670,7 @@ export default function Projects() {
                 project={project} 
                 onClick={() => navigate(`/projects/${project.id}`)}
                 onCategoryChange={handleCategoryChange}
+                categories={categoryList}
               />
             ))}
           </div>
