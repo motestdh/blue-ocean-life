@@ -529,7 +529,7 @@ Answer in the same language as the user's message.`;
         "X-Title": "LifeOS Telegram",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-r1-0528:free",
+        model: "deepseek/deepseek-chat",
         messages,
         tools,
         tool_choice: "auto",
@@ -591,7 +591,7 @@ Answer in the same language as the user's message.`;
             "X-Title": "LifeOS Telegram",
           },
           body: JSON.stringify({
-            model: "deepseek/deepseek-r1-0528:free",
+            model: "deepseek/deepseek-chat",
             messages: followUpMessages,
           }),
         });

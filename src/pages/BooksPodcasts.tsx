@@ -22,6 +22,7 @@ export default function BooksPodcasts() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BookPodcast | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'book' | 'podcast'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'still'>('all');
   const [formData, setFormData] = useState({
     name: '',
     url: '',
@@ -29,9 +30,13 @@ export default function BooksPodcasts() {
     status: 'to-consume' as 'to-consume' | 'in-progress' | 'completed',
   });
 
-  const filteredItems = items.filter(item => 
-    activeTab === 'all' || item.type === activeTab
-  );
+  const filteredItems = items.filter(item => {
+    const matchesType = activeTab === 'all' || item.type === activeTab;
+    const matchesStatus = statusFilter === 'all' 
+      || (statusFilter === 'completed' && item.status === 'completed')
+      || (statusFilter === 'still' && item.status !== 'completed');
+    return matchesType && matchesStatus;
+  });
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -108,17 +113,43 @@ export default function BooksPodcasts() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="book" className="gap-2">
-            <Book className="w-4 h-4" />
-            Books
-          </TabsTrigger>
-          <TabsTrigger value="podcast" className="gap-2">
-            <Headphones className="w-4 h-4" />
-            Podcasts
-          </TabsTrigger>
-        </TabsList>
+        <div className="space-y-3">
+          <TabsList className="bg-muted/50">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="book" className="gap-2">
+              <Book className="w-4 h-4" />
+              Books
+            </TabsTrigger>
+            <TabsTrigger value="podcast" className="gap-2">
+              <Headphones className="w-4 h-4" />
+              Podcasts
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex gap-2">
+            <Button 
+              variant={statusFilter === 'all' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+            >
+              All Status
+            </Button>
+            <Button 
+              variant={statusFilter === 'completed' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setStatusFilter('completed')}
+            >
+              Completed
+            </Button>
+            <Button 
+              variant={statusFilter === 'still' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setStatusFilter('still')}
+            >
+              Still
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value={activeTab} className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

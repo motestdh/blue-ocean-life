@@ -23,6 +23,7 @@ export default function MoviesSeriesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MovieSeries | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'series'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'still'>('all');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -30,9 +31,13 @@ export default function MoviesSeriesPage() {
     status: 'to-watch' as 'to-watch' | 'watching' | 'completed',
   });
 
-  const filteredItems = items.filter(item => 
-    activeTab === 'all' || item.type === activeTab
-  );
+  const filteredItems = items.filter(item => {
+    const matchesType = activeTab === 'all' || item.type === activeTab;
+    const matchesStatus = statusFilter === 'all' 
+      || (statusFilter === 'completed' && item.status === 'completed')
+      || (statusFilter === 'still' && item.status !== 'completed');
+    return matchesType && matchesStatus;
+  });
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -109,17 +114,43 @@ export default function MoviesSeriesPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="movie" className="gap-2">
-            <Film className="w-4 h-4" />
-            Movies
-          </TabsTrigger>
-          <TabsTrigger value="series" className="gap-2">
-            <Tv className="w-4 h-4" />
-            Series
-          </TabsTrigger>
-        </TabsList>
+        <div className="space-y-3">
+          <TabsList className="bg-muted/50">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="movie" className="gap-2">
+              <Film className="w-4 h-4" />
+              Movies
+            </TabsTrigger>
+            <TabsTrigger value="series" className="gap-2">
+              <Tv className="w-4 h-4" />
+              Series
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex gap-2">
+            <Button 
+              variant={statusFilter === 'all' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+            >
+              All Status
+            </Button>
+            <Button 
+              variant={statusFilter === 'completed' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setStatusFilter('completed')}
+            >
+              Watched
+            </Button>
+            <Button 
+              variant={statusFilter === 'still' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setStatusFilter('still')}
+            >
+              Still
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value={activeTab} className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
