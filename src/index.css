@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LifeOS - Blitzit-inspired design system with Blue accent */
+/* Blitzit-inspired design system */
 
 @layer base {
   :root {
@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 199 89% 48%;
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
@@ -24,7 +24,7 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 199 89% 48%;
+    --accent: 160 84% 39%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -32,18 +32,18 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 199 89% 48%;
+    --ring: 160 84% 39%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary: 160 84% 39%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 14% 96%;
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 199 89% 48%;
+    --sidebar-ring: 160 84% 39%;
     
     --success: 160 84% 39%;
     --warning: 38 92% 50%;
@@ -52,53 +52,65 @@
     --priority-high: 0 84% 60%;
     --priority-medium: 38 92% 50%;
     --priority-low: 160 84% 39%;
+    
+    /* Blitzit gradient colors */
+    --gradient-1: 180 70% 60%;
+    --gradient-2: 280 70% 60%;
+    --gradient-3: 200 70% 50%;
+    --gradient-4: 320 70% 60%;
   }
 
   .dark {
-    --background: 222 47% 6%;
+    --background: 225 25% 8%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 9%;
+    --card: 225 25% 11%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 9%;
+    --popover: 225 25% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 199 89% 48%;
+    --primary: 160 84% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 14%;
+    --secondary: 225 20% 15%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 14%;
+    --muted: 225 20% 15%;
     --muted-foreground: 215 20% 55%;
 
-    --accent: 199 89% 48%;
+    --accent: 160 84% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 199 89% 48%;
+    --border: 225 20% 18%;
+    --input: 225 20% 18%;
+    --ring: 160 84% 45%;
 
-    --sidebar-background: 222 47% 6%;
+    --sidebar-background: 225 25% 8%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary: 160 84% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent: 225 20% 15%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 199 89% 48%;
+    --sidebar-border: 225 20% 18%;
+    --sidebar-ring: 160 84% 45%;
     
-    --success: 160 84% 39%;
+    --success: 160 84% 45%;
     --warning: 38 92% 50%;
     --info: 199 89% 48%;
     
     --priority-high: 0 84% 60%;
     --priority-medium: 38 92% 50%;
     --priority-low: 160 84% 39%;
+    
+    /* Blitzit gradient colors - dark mode */
+    --gradient-1: 170 60% 45%;
+    --gradient-2: 280 50% 50%;
+    --gradient-3: 200 60% 40%;
+    --gradient-4: 320 50% 50%;
   }
   
   /* Theme color variations */
@@ -162,19 +174,79 @@
   }
 }
 
+/* Blitzit Mesh Gradient Background */
+.blitzit-gradient {
+  background: 
+    radial-gradient(ellipse at 0% 0%, hsl(var(--gradient-1) / 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 0%, hsl(var(--gradient-2) / 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, hsl(var(--gradient-3) / 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 0% 100%, hsl(var(--gradient-4) / 0.3) 0%, transparent 50%),
+    hsl(var(--background));
+  background-attachment: fixed;
+}
+
+.blitzit-gradient-subtle {
+  background: 
+    radial-gradient(ellipse at 80% 20%, hsl(var(--gradient-3) / 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 20% 80%, hsl(var(--gradient-4) / 0.1) 0%, transparent 40%),
+    hsl(var(--background));
+}
+
+/* Blitzit Card Style */
+.blitzit-card {
+  @apply bg-card/80 backdrop-blur-sm rounded-xl border border-border/50;
+  box-shadow: 0 4px 24px -4px hsl(0 0% 0% / 0.1);
+}
+
+.dark .blitzit-card {
+  @apply bg-card/90 border-border/30;
+  box-shadow: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
+}
+
+/* Timer Display */
+.timer-display {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+
+/* Gradient Button */
+.gradient-button {
+  background: linear-gradient(135deg, hsl(var(--gradient-1)) 0%, hsl(var(--gradient-2)) 50%, hsl(var(--gradient-3)) 100%);
+  background-size: 200% 200%;
+  transition: background-position 0.3s ease;
+}
+
+.gradient-button:hover {
+  background-position: 100% 100%;
+}
+
+/* Project/List Card Labels */
+.label-work {
+  @apply bg-blue-500/20 text-blue-400;
+}
+
+.label-personal {
+  @apply bg-pink-500/20 text-pink-400;
+}
+
+.label-graphic {
+  @apply bg-green-500/20 text-green-400;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
-  border-radius: 4px;
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -242,6 +314,15 @@
   }
 }
 
+@keyframes timer-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
 /* Animation classes */
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
@@ -263,6 +344,10 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+.animate-timer-pulse {
+  animation: timer-pulse 1s ease-in-out infinite;
+}
+
 .shadow-glow {
   box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
 }
@@ -272,12 +357,17 @@
 }
 
 /* Hover effects */
-.hover-scale {
-  @apply transition-transform duration-200;
+.hover-lift {
+  @apply transition-all duration-200;
 }
 
-.hover-scale:hover {
-  transform: scale(1.02);
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -8px hsl(0 0% 0% / 0.2);
+}
+
+.dark .hover-lift:hover {
+  box-shadow: 0 8px 30px -8px hsl(0 0% 0% / 0.5);
 }
 
 /* Glass morphism effect */
@@ -297,6 +387,32 @@
 .bg-success\/10 {
   background-color: hsl(var(--success) / 0.1);
 }
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--gradient-1)), hsl(var(--gradient-2)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Primary gradient background */
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--gradient-1)), hsl(var(--gradient-3)));
+}
+
+/* Status colors */
+.text-status-new { color: hsl(199 89% 48%); }
+.text-status-progress { color: hsl(38 92% 50%); }
+.text-status-completed { color: hsl(160 84% 39%); }
+.text-status-hold { color: hsl(215 20% 55%); }
+.text-status-cancelled { color: hsl(0 84% 60%); }
+
+.bg-status-new { background-color: hsl(199 89% 48%); }
+.bg-status-progress { background-color: hsl(38 92% 50%); }
+.bg-status-completed { background-color: hsl(160 84% 39%); }
+.bg-status-hold { background-color: hsl(215 20% 55%); }
+.bg-status-cancelled { background-color: hsl(0 84% 60%); }
 
 /* Focus ring improvements */
 .focus-ring {

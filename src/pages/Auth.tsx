@@ -55,7 +55,7 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast({ title: 'Account created!', description: 'Welcome to LifeOS.' });
+        toast({ title: 'Account created!', description: 'Welcome to Blitzit.' });
       }
     } catch (error: any) {
       console.error('Auth error:', error);
@@ -70,21 +70,21 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen blitzit-gradient flex items-center justify-center p-4">
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary mb-4 shadow-glow">
             <Zap className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">LifeOS</h1>
+          <h1 className="text-3xl font-bold text-foreground">Blitzit</h1>
           <p className="text-muted-foreground mt-2">
             {isLogin ? 'Welcome back!' : 'Create your account'}
           </p>
         </div>
 
         {/* Form */}
-        <div className="bg-card rounded-2xl border border-border p-8 shadow-soft">
+        <div className="blitzit-card p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <div className="space-y-2">
