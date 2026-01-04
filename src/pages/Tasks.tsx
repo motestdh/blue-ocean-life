@@ -369,12 +369,22 @@ export default function Tasks() {
       return;
     }
 
+    // If adding subtask, inherit project_id from parent task
+    let projectId: string | null = null;
+    if (newTask.parent_task_id) {
+      const parentTask = displayTasks.find(t => t.id === newTask.parent_task_id);
+      if (parentTask?.project_id) {
+        projectId = parentTask.project_id;
+      }
+    }
+
     const result = await addTask({
       title: newTask.title,
       description: newTask.description,
       priority: newTask.priority,
       due_date: newTask.due_date || null,
       parent_task_id: newTask.parent_task_id,
+      project_id: projectId,
     });
 
     if (result.error) {
