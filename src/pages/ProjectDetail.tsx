@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Edit2, Loader2, GripVertical, CalendarIcon, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit2, Loader2, GripVertical, CalendarIcon, ChevronRight, ChevronDown, Clock, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects } from '@/hooks/useProjects';
@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { EditTaskDialog } from '@/components/dialogs/EditTaskDialog';
 import {
   Select,
   SelectContent,
@@ -77,14 +78,20 @@ function SortableTaskItem({
   task, 
   onToggle, 
   onDelete,
+  onEdit,
   onAddSubtask,
+  onTimerToggle,
+  timerState,
   subtasks = [],
   level = 0,
 }: { 
   task: Task; 
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
   onAddSubtask?: (parentId: string) => void;
+  onTimerToggle: (taskId: string) => void;
+  timerState: { [key: string]: { isRunning: boolean; seconds: number } };
   subtasks?: Task[];
   level?: number;
 }) {
@@ -104,6 +111,14 @@ function SortableTaskItem({
   };
 
   const isCompleted = task.status === 'completed';
+  const timer = timerState[task.id] || { isRunning: false, seconds: (task.actual_time || 0) * 3600 };
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="space-y-1">
@@ -150,6 +165,29 @@ function SortableTaskItem({
             <p className="text-sm text-muted-foreground truncate">{task.description}</p>
           )}
         </div>
+
+        {/* Time Tracker */}
+        {!isCompleted && (
+          <div className="flex items-center gap-1">
+            <div className={cn(
+              'flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md',
+              timer.isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+            )}>
+              <Clock className="w-3 h-3" />
+              <span>{formatTime(timer.seconds)}</span>
+            </div>
+            <button
+              onClick={() => onTimerToggle(task.id)}
+              className="p-1 rounded hover:bg-muted transition-colors"
+            >
+              {timer.isRunning ? (
+                <Pause className="w-3.5 h-3.5 text-primary" />
+              ) : (
+                <Play className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
+            </button>
+          </div>
+        )}
         
         <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
         
@@ -171,6 +209,16 @@ function SortableTaskItem({
             <Plus className="w-4 h-4 text-primary" />
           </Button>
         )}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100"
+          onClick={() => onEdit(task)}
+          title="Edit task"
+        >
+          <Edit2 className="w-4 h-4 text-muted-foreground" />
+        </Button>
         
         <Button
           variant="ghost"
@@ -190,6 +238,9 @@ function SortableTaskItem({
               task={subtask}
               onToggle={onToggle}
               onDelete={onDelete}
+              onEdit={onEdit}
+              onTimerToggle={onTimerToggle}
+              timerState={timerState}
               level={level + 1}
             />
           ))}
@@ -210,6 +261,9 @@ export default function ProjectDetail() {
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [parentTaskId, setParentTaskId] = useState<string | null>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
+  const [timerState, setTimerState] = useState<{ [key: string]: { isRunning: boolean; seconds: number } }>({});
   
   const project = projects.find(p => p.id === id);
   
@@ -238,6 +292,38 @@ export default function ProjectDetail() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Initialize timer state from tasks
+  useEffect(() => {
+    const initialState: { [key: string]: { isRunning: boolean; seconds: number } } = {};
+    tasks.forEach(task => {
+      if (!timerState[task.id]) {
+        initialState[task.id] = { isRunning: false, seconds: (task.actual_time || 0) * 3600 };
+      }
+    });
+    if (Object.keys(initialState).length > 0) {
+      setTimerState(prev => ({ ...prev, ...initialState }));
+    }
+  }, [tasks]);
+
+  // Timer interval effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimerState(prev => {
+        const newState = { ...prev };
+        let hasChanges = false;
+        Object.keys(newState).forEach(taskId => {
+          if (newState[taskId].isRunning) {
+            newState[taskId] = { ...newState[taskId], seconds: newState[taskId].seconds + 1 };
+            hasChanges = true;
+          }
+        });
+        return hasChanges ? newState : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (project) {
@@ -371,6 +457,35 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleTimerToggle = async (taskId: string) => {
+    const current = timerState[taskId] || { isRunning: false, seconds: 0 };
+    
+    if (current.isRunning) {
+      // Stop timer and save time
+      await updateTask(taskId, { actual_time: current.seconds / 3600 });
+    }
+    
+    setTimerState(prev => ({
+      ...prev,
+      [taskId]: { ...current, isRunning: !current.isRunning }
+    }));
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditTaskDialogOpen(true);
+  };
+
+  const handleSaveTask = async (taskId: string, updates: Partial<Task>) => {
+    const result = await updateTask(taskId, updates);
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Task updated!' });
+      setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -493,7 +608,10 @@ export default function ProjectDetail() {
                   task={task} 
                   onToggle={handleToggleTask}
                   onDelete={handleDeleteTask}
+                  onEdit={handleEditTask}
                   onAddSubtask={handleOpenSubtaskDialog}
+                  onTimerToggle={handleTimerToggle}
+                  timerState={timerState}
                   subtasks={getSubtasks(task.id)}
                 />
               ))}
@@ -720,6 +838,14 @@ export default function ProjectDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Task Dialog */}
+      <EditTaskDialog
+        task={editingTask}
+        open={editTaskDialogOpen}
+        onOpenChange={setEditTaskDialogOpen}
+        onSave={handleSaveTask}
+      />
     </div>
   );
 }
