@@ -14,7 +14,9 @@ import {
   ChevronLeft,
   Menu,
   Zap,
-  BarChart3
+  BarChart3,
+  Book,
+  Film
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
@@ -29,6 +31,8 @@ const navItems = [
   { icon: Users, label: 'Clients', path: '/clients' },
   { icon: DollarSign, label: 'Finance', path: '/finance' },
   { icon: BookOpen, label: 'Learning', path: '/learning' },
+  { icon: Book, label: 'Books & Podcasts', path: '/books-podcasts' },
+  { icon: Film, label: 'Movies & Series', path: '/movies-series' },
   { icon: FileText, label: 'Notes', path: '/notes' },
   { icon: Repeat, label: 'Habits', path: '/habits' },
   { icon: BarChart3, label: 'Analytics', path: '/analytics' },

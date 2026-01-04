@@ -18,6 +18,8 @@ import Notes from "./pages/Notes";
 import Learning from "./pages/Learning";
 import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
+import BooksPodcasts from "./pages/BooksPodcasts";
+import MoviesSeries from "./pages/MoviesSeries";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +50,8 @@ const App = () => (
                     <Route path="/clients" element={<Clients />} />
                     <Route path="/notes" element={<Notes />} />
                     <Route path="/learning" element={<Learning />} />
+                    <Route path="/books-podcasts" element={<BooksPodcasts />} />
+                    <Route path="/movies-series" element={<MoviesSeries />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/analytics" element={<Analytics />} />
                     <Route path="*" element={<NotFound />} />
