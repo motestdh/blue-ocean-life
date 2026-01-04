@@ -1101,9 +1101,9 @@ Answer in the same language as the user's message (Arabic or English).`;
       })),
     }];
 
-    // Call Gemini API - using gemini-1.5-flash which is available on free tier
+    // Call Gemini API - using gemini-2.5-flash-lite (free tier)
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${profile.gemini_api_key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${profile.gemini_api_key}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1164,7 +1164,7 @@ Answer in the same language as the user's message (Arabic or English).`;
         ];
 
         const followUpResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${profile.gemini_api_key}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${profile.gemini_api_key}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
