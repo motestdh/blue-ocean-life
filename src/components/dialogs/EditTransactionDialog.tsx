@@ -21,6 +21,9 @@ import type { Database } from '@/integrations/supabase/types';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
+const CURRENCIES = ['USD', 'EUR', 'DZD'] as const;
+type Currency = typeof CURRENCIES[number];
+
 interface EditTransactionDialogProps {
   transaction: Transaction | null;
   open: boolean;
@@ -35,6 +38,7 @@ export function EditTransactionDialog({ transaction, open, onOpenChange, onSave 
     category: '',
     description: '',
     date: '',
+    currency: 'EUR' as Currency,
   });
   const [saving, setSaving] = useState(false);
 
@@ -46,6 +50,7 @@ export function EditTransactionDialog({ transaction, open, onOpenChange, onSave 
         category: transaction.category || '',
         description: transaction.description || '',
         date: transaction.date,
+        currency: (transaction.currency as Currency) || 'EUR',
       });
     }
   }, [transaction]);
@@ -65,6 +70,7 @@ export function EditTransactionDialog({ transaction, open, onOpenChange, onSave 
       category: formData.category,
       description: formData.description || null,
       date: formData.date,
+      currency: formData.currency,
     });
     setSaving(false);
 
@@ -98,15 +104,33 @@ export function EditTransactionDialog({ transaction, open, onOpenChange, onSave 
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label htmlFor="edit-amount">Amount *</Label>
-            <Input
-              id="edit-amount"
-              type="number"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              placeholder="0.00"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="edit-amount">Amount *</Label>
+              <Input
+                id="edit-amount"
+                type="number"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <Label>Currency</Label>
+              <Select
+                value={formData.currency}
+                onValueChange={(value) => setFormData({ ...formData, currency: value as Currency })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div>
             <Label htmlFor="edit-category">Category *</Label>

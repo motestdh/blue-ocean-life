@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock } from 'lucide-react';
+import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useCurrencyRates } from '@/hooks/useCurrencyRates';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -107,6 +108,12 @@ const translations = {
     saveSettings: 'Save Settings',
     saving: 'Saving...',
     settingsSaved: 'Settings saved successfully',
+    currencyRates: 'Currency Rates',
+    currencyRatesDesc: 'Configure exchange rates for currency conversion',
+    usdToEur: 'USD → EUR Rate',
+    eurToDzd: 'EUR → DZD Rate',
+    saveRates: 'Save Rates',
+    ratesSaved: 'Exchange rates saved successfully',
   },
   ar: {
     settings: 'الإعدادات',
@@ -156,6 +163,12 @@ const translations = {
     saveSettings: 'حفظ الإعدادات',
     saving: 'جاري الحفظ...',
     settingsSaved: 'تم حفظ الإعدادات بنجاح',
+    currencyRates: 'أسعار العملات',
+    currencyRatesDesc: 'تكوين أسعار الصرف لتحويل العملات',
+    usdToEur: 'سعر الدولار → اليورو',
+    eurToDzd: 'سعر اليورو → الدينار',
+    saveRates: 'حفظ الأسعار',
+    ratesSaved: 'تم حفظ أسعار الصرف بنجاح',
   },
 };
 
@@ -171,7 +184,13 @@ export default function Settings() {
   } = useAppStore();
   const { user } = useAuth();
   const { isSupported, permission, requestPermission, showNotification } = useNotifications();
+  const { rates, updateRates, loading: ratesLoading } = useCurrencyRates();
   const t = translations[language];
+
+  // Currency rates state
+  const [usdToEur, setUsdToEur] = useState('0.82');
+  const [eurToDzd, setEurToDzd] = useState('275');
+  const [isSavingRates, setIsSavingRates] = useState(false);
 
   // Daily notification settings state
   const [emailEnabled, setEmailEnabled] = useState(false);
@@ -182,6 +201,14 @@ export default function Settings() {
   const [timezone, setTimezone] = useState('UTC');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Load currency rates
+  useEffect(() => {
+    if (!ratesLoading) {
+      setUsdToEur(rates.usd_to_eur.toString());
+      setEurToDzd(rates.eur_to_dzd.toString());
+    }
+  }, [rates, ratesLoading]);
 
   // Load profile notification settings
   useEffect(() => {
@@ -207,6 +234,24 @@ export default function Settings() {
     
     loadProfile();
   }, [user?.id]);
+
+  const saveCurrencyRates = async () => {
+    setIsSavingRates(true);
+    try {
+      const result = await updateRates({
+        usd_to_eur: parseFloat(usdToEur),
+        eur_to_dzd: parseFloat(eurToDzd),
+      });
+      
+      if (result.error) throw new Error(result.error);
+      toast.success(t.ratesSaved);
+    } catch (error) {
+      console.error('Error saving rates:', error);
+      toast.error(language === 'ar' ? 'فشل حفظ الأسعار' : 'Failed to save rates');
+    } finally {
+      setIsSavingRates(false);
+    }
+  };
 
   const saveNotificationSettings = async () => {
     if (!user?.id) return;
@@ -413,6 +458,66 @@ export default function Settings() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Currency Rates */}
+      <div className="blitzit-card p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Coins className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{t.currencyRates}</h2>
+            <p className="text-sm text-muted-foreground">{t.currencyRatesDesc}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-foreground">{t.usdToEur}</Label>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="0.82"
+              value={usdToEur}
+              onChange={(e) => setUsdToEur(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {language === 'ar' ? 'مثال: 1 دولار = 0.82 يورو' : 'Example: 1 USD = 0.82 EUR'}
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-foreground">{t.eurToDzd}</Label>
+            <Input
+              type="number"
+              step="1"
+              placeholder="275"
+              value={eurToDzd}
+              onChange={(e) => setEurToDzd(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {language === 'ar' ? 'مثال: 1 يورو = 275 دج' : 'Example: 1 EUR = 275 DZD'}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-muted/50 border border-border">
+          <p className="text-sm text-muted-foreground">
+            {language === 'ar' 
+              ? `التحويل: 100 دولار = ${(100 * parseFloat(usdToEur || '0')).toFixed(2)} يورو = ${(100 * parseFloat(usdToEur || '0') * parseFloat(eurToDzd || '0')).toFixed(0)} دج`
+              : `Conversion: 100 USD = ${(100 * parseFloat(usdToEur || '0')).toFixed(2)} EUR = ${(100 * parseFloat(usdToEur || '0') * parseFloat(eurToDzd || '0')).toFixed(0)} DZD`
+            }
+          </p>
+        </div>
+
+        <Button 
+          onClick={saveCurrencyRates} 
+          disabled={isSavingRates}
+          className="w-full"
+        >
+          {isSavingRates ? t.saving : t.saveRates}
+        </Button>
       </div>
 
       {/* AI Integration */}

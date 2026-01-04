@@ -1,22 +1,23 @@
 import { Wallet, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useCurrencyRates } from '@/hooks/useCurrencyRates';
+import { useTransactions } from '@/hooks/useTransactions';
 
-interface FinanceSummaryCardProps {
-  income: number;
-  expenses: number;
-  balance: number;
-}
+export function FinanceSummaryCard() {
+  const { transactions } = useTransactions();
+  const { convertToDZD, formatDZD } = useCurrencyRates();
 
-export function FinanceSummaryCard({ income, expenses, balance }: FinanceSummaryCardProps) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  // Calculate totals in DZD
+  const income = transactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + convertToDZD(Number(t.amount), t.currency || 'USD'), 0);
+
+  const expenses = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + convertToDZD(Number(t.amount), t.currency || 'USD'), 0);
+
+  const balance = income - expenses;
 
   return (
     <div className="blitzit-card p-5">
@@ -38,7 +39,7 @@ export function FinanceSummaryCard({ income, expenses, balance }: FinanceSummary
             </div>
             <span className="text-sm text-muted-foreground">Income</span>
           </div>
-          <span className="font-semibold text-emerald-500">{formatCurrency(income)}</span>
+          <span className="font-semibold text-emerald-500">{formatDZD(income)}</span>
         </div>
 
         <div className="flex items-center justify-between">
@@ -48,7 +49,7 @@ export function FinanceSummaryCard({ income, expenses, balance }: FinanceSummary
             </div>
             <span className="text-sm text-muted-foreground">Expenses</span>
           </div>
-          <span className="font-semibold text-destructive">{formatCurrency(expenses)}</span>
+          <span className="font-semibold text-destructive">{formatDZD(expenses)}</span>
         </div>
 
         <div className="pt-3 border-t border-border/50">
@@ -58,7 +59,7 @@ export function FinanceSummaryCard({ income, expenses, balance }: FinanceSummary
               "text-lg font-bold",
               balance >= 0 ? "text-emerald-500" : "text-destructive"
             )}>
-              {formatCurrency(balance)}
+              {formatDZD(balance)}
             </span>
           </div>
         </div>
