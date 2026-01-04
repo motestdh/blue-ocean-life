@@ -64,15 +64,27 @@ export function AIChatButton() {
         return;
       }
 
-      // If Gemini fails with missing API key, show helpful message
-      if (geminiData?.error?.includes('API key')) {
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: language === 'ar' 
-            ? '⚙️ للحصول على ميزات الذكاء الاصطناعي الكاملة، يرجى إضافة مفتاح Gemini API في الإعدادات ← تكامل الذكاء الاصطناعي.\n\nيمكنك الحصول على مفتاح مجاني من Google AI Studio.'
-            : '⚙️ For full AI features, please add your Gemini API key in Settings → AI Integration.\n\nYou can get a free key from Google AI Studio.'
-        }]);
-        return;
+      // If Gemini returns a known error, show a helpful message
+      if (geminiData?.error) {
+        const errText = String(geminiData.error);
+
+        // Missing/invalid key: guide user to Settings and stop
+        if (errText.toLowerCase().includes('api key') || errText.toLowerCase().includes('settings')) {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: language === 'ar'
+              ? '⚙️ للتحكم بالذكاء الاصطناعي عبر Gemini، أضف/تحقق من مفتاح Gemini API في الإعدادات ← تكامل الذكاء الاصطناعي.'
+              : '⚙️ To use Gemini, add/check your Gemini API key in Settings → AI Integration.'
+          }]);
+          return;
+        }
+
+        // Quota/rate limit: inform user, then fall back to built-in AI
+        if (errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('rate limit')) {
+          toast.error(language === 'ar'
+            ? 'تم تجاوز حصة/الحد في Gemini. سنستخدم المساعد المدمج مؤقتًا.'
+            : 'Gemini quota/rate limit exceeded. Falling back to built-in AI.');
+        }
       }
 
       // Fallback to basic AI chat

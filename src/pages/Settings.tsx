@@ -351,9 +351,32 @@ export default function Settings() {
           }),
         }
       );
-      
+
       if (response.ok) {
         toast.success(t.connectionSuccess);
+        return;
+      }
+
+      // Parse Gemini error for clearer feedback
+      let err: any = null;
+      try {
+        err = await response.json();
+      } catch {
+        // ignore
+      }
+
+      const code = err?.error?.code as number | undefined;
+      const status = String(err?.error?.status ?? '');
+      const msg = String(err?.error?.message ?? '');
+
+      if (code === 429 || status === 'RESOURCE_EXHAUSTED') {
+        toast.error(
+          language === 'ar'
+            ? 'تم تجاوز حصة/الحد في Gemini (قد تكون الحصة المجانية = 0). فعّل الفوترة أو جرّب لاحقًا.'
+            : 'Gemini quota/rate limit exceeded (your free quota may be 0). Enable billing or try again later.'
+        );
+      } else if (msg.includes('API_KEY_INVALID') || msg.toLowerCase().includes('api key')) {
+        toast.error(language === 'ar' ? 'مفتاح API غير صالح. تحقّق منه ثم جرّب مرة أخرى.' : 'Invalid API key. Please check and try again.');
       } else {
         toast.error(t.connectionFailed);
       }
