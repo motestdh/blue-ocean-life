@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, LayoutList, Kanban, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, LayoutList, Kanban, ChevronRight, ChevronDown, Edit2 } from 'lucide-react';
 import { ExportButton } from '@/components/export/ExportButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import { useAppStore } from '@/stores/useAppStore';
+import { EditTaskDialog } from '@/components/dialogs/EditTaskDialog';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ const priorityDotColors: Record<string, string> = {
 interface SortableTaskItemProps {
   task: Task;
   onToggle: () => void;
+  onEdit: (task: Task) => void;
   onTimeUpdate: (taskId: string, time: number) => void;
   timerState: { [key: string]: { isRunning: boolean; seconds: number } };
   onTimerToggle: (taskId: string) => void;
@@ -64,7 +66,7 @@ interface SortableTaskItemProps {
   allTasks: Task[];
 }
 
-function SortableTaskItem({ task, onToggle, onTimeUpdate, timerState, onTimerToggle, onAddSubtask, subtasks, allTasks }: SortableTaskItemProps) {
+function SortableTaskItem({ task, onToggle, onEdit, onTimeUpdate, timerState, onTimerToggle, onAddSubtask, subtasks, allTasks }: SortableTaskItemProps) {
   const [expanded, setExpanded] = useState(false);
   const {
     attributes,
@@ -151,6 +153,15 @@ function SortableTaskItem({ task, onToggle, onTimeUpdate, timerState, onTimerTog
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Edit Button */}
+          <button
+            onClick={() => onEdit(task)}
+            className="p-1.5 rounded hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+            title="Edit task"
+          >
+            <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
+
           {/* Add Subtask Button */}
           {task.status !== 'completed' && (
             <button
@@ -211,6 +222,7 @@ function SortableTaskItem({ task, onToggle, onTimeUpdate, timerState, onTimerTog
               key={subtask.id}
               task={subtask}
               onToggle={() => onToggle()}
+              onEdit={onEdit}
               onTimeUpdate={onTimeUpdate}
               timerState={timerState}
               onTimerToggle={onTimerToggle}
@@ -233,6 +245,8 @@ export default function Tasks() {
   const [timerState, setTimerState] = useState<{ [key: string]: { isRunning: boolean; seconds: number } }>({});
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const rtlEnabled = useAppStore((state) => state.rtlEnabled);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -383,6 +397,21 @@ export default function Tasks() {
     );
   }
 
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveTask = async (id: string, updates: Partial<Task>) => {
+    const result = await updateTask(id, updates);
+    if (result.error) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: 'Task updated!' });
+      setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    }
+  };
+
   const TaskSection = ({ sectionTasks, emptyMessage }: { sectionTasks: Task[], emptyMessage: string }) => (
     <DndContext
       sensors={sensors}
@@ -397,6 +426,7 @@ export default function Tasks() {
                 key={task.id} 
                 task={task} 
                 onToggle={() => handleToggle(task)}
+                onEdit={handleEditTask}
                 onTimeUpdate={handleTimeUpdate}
                 timerState={timerState}
                 onTimerToggle={handleTimerToggle}
@@ -526,6 +556,14 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Task Dialog */}
+      <EditTaskDialog
+        task={editingTask}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSave={handleSaveTask}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
