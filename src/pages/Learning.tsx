@@ -194,7 +194,7 @@ export default function Learning() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="blitzit-card p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-primary/10">
               <BookOpen className="w-5 h-5 text-primary" />
@@ -206,7 +206,7 @@ export default function Learning() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="blitzit-card p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-blue-500/10">
               <Play className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -218,7 +218,7 @@ export default function Learning() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="blitzit-card p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-emerald-500/10">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -241,7 +241,7 @@ export default function Learning() {
           return (
             <div
               key={course.id}
-              className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200 group"
+              className="p-5 rounded-xl blitzit-card hover:border-primary/30 transition-all duration-200 group hover-lift"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">

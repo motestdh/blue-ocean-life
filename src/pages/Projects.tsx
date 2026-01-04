@@ -80,7 +80,7 @@ function SortableProjectCard({ project, onClick }: { project: Project; onClick: 
       style={style}
       onClick={onClick}
       className={cn(
-        'bg-card rounded-xl border border-border p-5 hover-lift cursor-pointer border-l-4 relative group',
+        'blitzit-card p-5 hover-lift cursor-pointer border-l-4 relative group',
         priorityColors[project.priority],
         isDragging && 'opacity-50 shadow-xl z-50'
       )}
