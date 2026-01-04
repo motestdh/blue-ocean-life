@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type ThemeColor = 'green' | 'blue' | 'purple' | 'orange' | 'pink' | 'cyan';
+type ThemeColor = 'green' | 'blue' | 'purple' | 'orange' | 'pink' | 'cyan' | 'red' | 'teal' | 'gold' | 'indigo' | 'rose' | 'emerald';
 type Language = 'en' | 'ar';
-type BackgroundStyle = 'default' | 'gradient' | 'subtle' | 'solid';
-type FontFamily = 'system' | 'inter' | 'geist' | 'mono';
+type BackgroundStyle = 'default' | 'gradient' | 'subtle' | 'solid' | 'mesh' | 'aurora' | 'minimal';
+type FontFamily = 'system' | 'inter' | 'poppins' | 'space' | 'jakarta' | 'dm' | 'outfit' | 'mono';
 
 interface NotificationSettings {
   taskReminders: boolean;
@@ -92,7 +92,7 @@ export const useAppStore = create<AppState>()(
       setThemeColor: (color) => {
         set({ themeColor: color });
         const root = document.documentElement;
-        ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
+        ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'].forEach(c => {
           root.classList.remove(`theme-${c}`);
         });
         root.classList.add(`theme-${color}`);
