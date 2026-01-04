@@ -1120,8 +1120,8 @@ Answer in the same language as the user's message (Arabic or English).`;
     // Add current message
     messages.push({ role: "user", content: message });
 
-    // Call OpenRouter API with DeepSeek R1 (free model)
-    console.log("Calling OpenRouter with DeepSeek R1...");
+    // Call OpenRouter API with DeepSeek Chat (supports tool calling)
+    console.log("Calling OpenRouter with DeepSeek Chat...");
     const openrouterResponse = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -1133,7 +1133,7 @@ Answer in the same language as the user's message (Arabic or English).`;
           "X-Title": "LifeOS",
         },
         body: JSON.stringify({
-          model: "deepseek/deepseek-r1-0528:free",
+          model: "deepseek/deepseek-chat",
           messages,
           tools,
           tool_choice: "auto",
