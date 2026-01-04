@@ -1049,8 +1049,8 @@ serve(async (req) => {
 
     if (!profile?.gemini_api_key) {
       return new Response(
-        JSON.stringify({ error: "Please add your Gemini API key in Settings → AI Integration" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Please add your Gemini API key in Settings → AI Integration", code: 400 }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -1120,15 +1120,58 @@ Answer in the same language as the user's message (Arabic or English).`;
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
       console.error("Gemini API error:", geminiResponse.status, errorText);
-      
-      if (geminiResponse.status === 400 && errorText.includes("API_KEY_INVALID")) {
+
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(errorText);
+      } catch {
+        // ignore
+      }
+
+      const apiCode = parsed?.error?.code ?? geminiResponse.status;
+      const apiStatus = parsed?.error?.status ?? "";
+      const apiMessage = parsed?.error?.message ?? errorText;
+
+      const retryDelay =
+        parsed?.error?.details?.find((d: any) => d?.["@type"] === "type.googleapis.com/google.rpc.RetryInfo")
+          ?.retryDelay ?? null;
+
+      // Return as 200 with an { error } payload so the client can display a helpful message
+      if (apiCode === 429 || apiStatus === "RESOURCE_EXHAUSTED") {
+        const retryHint = retryDelay ? ` Retry in ${retryDelay}.` : "";
         return new Response(
-          JSON.stringify({ error: "Invalid Gemini API key. Please check your key in Settings." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error:
+              "Gemini quota/rate limit exceeded." +
+              retryHint +
+              " Please check your plan/billing or try again later.",
+            code: 429,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
-      throw new Error(`Gemini API error: ${geminiResponse.status}`);
+
+      if (
+        apiCode === 400 &&
+        (apiMessage.includes("API_KEY_INVALID") || apiMessage.toLowerCase().includes("api key"))
+      ) {
+        return new Response(
+          JSON.stringify({ error: "Invalid Gemini API key. Please check your key in Settings.", code: 400 }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (apiCode === 401 || apiCode === 403) {
+        return new Response(
+          JSON.stringify({ error: "Gemini request was rejected (unauthorized). Please verify your API key and permissions.", code: apiCode }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ error: `Gemini API error: ${apiCode}`, code: apiCode }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const geminiData = await geminiResponse.json();
