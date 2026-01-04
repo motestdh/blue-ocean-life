@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, FileText, Folder, Trash2, Pin, Loader2, Edit2, Tag, Settings2 } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Pin, Loader2, Edit2, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useNotes } from '@/hooks/useNotes';
-import { useUserCategories } from '@/hooks/useUserCategories';
 import {
   Dialog,
   DialogContent,
@@ -42,27 +41,26 @@ type Note = Database['public']['Tables']['notes']['Row'];
 
 export default function Notes() {
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
-  const { categories: userCategories } = useUserCategories();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [deletingNote, setDeletingNote] = useState<Note | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [newFolderInput, setNewFolderInput] = useState('');
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
     folder: 'General',
   });
 
-  // Get categories - user categories + default "General"
-  const categoryList = useMemo(() => {
-    const baseCategories = [{ id: 'general', name: 'General', color: '#6B7280' }];
-    return [...baseCategories, ...userCategories];
-  }, [userCategories]);
-
-  const allCategoryNames = useMemo(() => {
-    return ['all', ...categoryList.map(c => c.name)];
-  }, [categoryList]);
+  // Get unique folders from existing notes
+  const folderList = useMemo(() => {
+    const folders = new Set<string>(['General']);
+    notes.forEach(note => {
+      if (note.folder) folders.add(note.folder);
+    });
+    return Array.from(folders).sort();
+  }, [notes]);
 
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,20 +157,43 @@ export default function Notes() {
                 />
               </div>
               <div>
-                <Label htmlFor="folder">Category</Label>
-                <Select
-                  value={newNote.folder}
-                  onValueChange={(value) => setNewNote({ ...newNote, folder: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryList.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="folder">Folder</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={newNote.folder}
+                    onValueChange={(value) => setNewNote({ ...newNote, folder: value })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {folderList.map((folder) => (
+                        <SelectItem key={folder} value={folder}>{folder}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="New folder name..."
+                    value={newFolderInput}
+                    onChange={(e) => setNewFolderInput(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (newFolderInput.trim()) {
+                        setNewNote({ ...newNote, folder: newFolderInput.trim() });
+                        setNewFolderInput('');
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label htmlFor="content">Content</Label>
@@ -192,14 +213,13 @@ export default function Notes() {
         </Dialog>
       </div>
 
-      {/* Category Tabs */}
+      {/* Folder Tabs */}
       <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="w-full">
         <TabsList className="bg-muted/50 flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-          {categoryList.map((cat) => (
-            <TabsTrigger key={cat.id} value={cat.name} className="text-xs gap-1">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-              {cat.name}
+          {folderList.map((folder) => (
+            <TabsTrigger key={folder} value={folder} className="text-xs">
+              {folder}
             </TabsTrigger>
           ))}
         </TabsList>
