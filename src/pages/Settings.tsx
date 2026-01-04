@@ -94,17 +94,20 @@ const translations = {
     aiIntegrationDesc: 'Configure AI features for your app',
     aiEnabled: 'AI Features',
     aiEnabledDesc: 'Enable AI-powered suggestions and chat',
-    geminiApiKey: 'Gemini API Key',
-    geminiApiKeyDesc: 'Your personal Gemini API key for AI features',
-    geminiApiKeyHelp: 'Get your free API key from Google AI Studio',
+    geminiApiKey: 'OpenRouter API Key',
+    geminiApiKeyDesc: 'Your OpenRouter API key for DeepSeek R1 AI (free)',
+    geminiApiKeyHelp: 'Get your free API key from openrouter.ai',
     getApiKey: 'Get API Key',
     testConnection: 'Test Connection',
     testing: 'Testing...',
-    connectionSuccess: 'Gemini API key is valid!',
+    connectionSuccess: 'OpenRouter API key is valid!',
     connectionFailed: 'Invalid API key. Please check and try again.',
     telegramBotToken: 'Telegram Bot Token',
-    telegramBotTokenDesc: 'Your bot token for Telegram notifications',
+    telegramBotTokenDesc: 'Your bot token for Telegram AI chat',
     telegramBotTokenHelp: 'Create a bot via @BotFather on Telegram',
+    setupWebhook: 'Setup Webhook',
+    webhookSuccess: 'Telegram webhook setup successfully!',
+    webhookFailed: 'Failed to setup webhook. Check your bot token.',
     dailyNotifications: 'Daily Notifications',
     dailyNotificationsDesc: 'Configure email and Telegram notifications',
     emailNotifications: 'Email Notifications',
@@ -159,17 +162,20 @@ const translations = {
     aiIntegrationDesc: 'تكوين ميزات الذكاء الاصطناعي',
     aiEnabled: 'ميزات الذكاء الاصطناعي',
     aiEnabledDesc: 'تفعيل الاقتراحات والدردشة بالذكاء الاصطناعي',
-    geminiApiKey: 'مفتاح Gemini API',
-    geminiApiKeyDesc: 'مفتاح API الخاص بك لميزات الذكاء الاصطناعي',
-    geminiApiKeyHelp: 'احصل على مفتاح API المجاني من Google AI Studio',
+    geminiApiKey: 'مفتاح OpenRouter API',
+    geminiApiKeyDesc: 'مفتاح OpenRouter الخاص بك لـ DeepSeek R1 AI (مجاني)',
+    geminiApiKeyHelp: 'احصل على مفتاح API المجاني من openrouter.ai',
     getApiKey: 'احصل على المفتاح',
     testConnection: 'اختبار الاتصال',
     testing: 'جاري الاختبار...',
-    connectionSuccess: 'مفتاح Gemini API صالح!',
+    connectionSuccess: 'مفتاح OpenRouter API صالح!',
     connectionFailed: 'مفتاح غير صالح. يرجى التحقق والمحاولة مرة أخرى.',
     telegramBotToken: 'رمز بوت Telegram',
-    telegramBotTokenDesc: 'رمز البوت الخاص بك لإشعارات Telegram',
+    telegramBotTokenDesc: 'رمز البوت الخاص بك لدردشة AI عبر Telegram',
     telegramBotTokenHelp: 'أنشئ بوت عبر @BotFather على Telegram',
+    setupWebhook: 'إعداد Webhook',
+    webhookSuccess: 'تم إعداد Telegram webhook بنجاح!',
+    webhookFailed: 'فشل إعداد webhook. تحقق من رمز البوت.',
     dailyNotifications: 'الإشعارات اليومية',
     dailyNotificationsDesc: 'تكوين إشعارات البريد الإلكتروني و Telegram',
     emailNotifications: 'إشعارات البريد الإلكتروني',
@@ -231,6 +237,7 @@ export default function Settings() {
   const [showBotToken, setShowBotToken] = useState(false);
   const [isTestingGemini, setIsTestingGemini] = useState(false);
   const [isSavingAI, setIsSavingAI] = useState(false);
+  const [isSettingUpWebhook, setIsSettingUpWebhook] = useState(false);
 
   // Load currency rates
   useEffect(() => {
@@ -343,42 +350,30 @@ export default function Settings() {
     
     setIsTestingGemini(true);
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Say "Hello"' }] }],
-          }),
-        }
-      );
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${geminiApiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'LifeOS',
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-r1-0528:free',
+          messages: [{ role: 'user', content: 'Say "Hello"' }],
+          max_tokens: 10,
+        }),
+      });
 
       if (response.ok) {
         toast.success(t.connectionSuccess);
         return;
       }
 
-      // Parse Gemini error for clearer feedback
-      let err: any = null;
-      try {
-        err = await response.json();
-      } catch {
-        // ignore
-      }
-
-      const code = err?.error?.code as number | undefined;
-      const status = String(err?.error?.status ?? '');
-      const msg = String(err?.error?.message ?? '');
-
-      if (code === 429 || status === 'RESOURCE_EXHAUSTED') {
-        toast.error(
-          language === 'ar'
-            ? 'تم تجاوز حصة/الحد في Gemini (قد تكون الحصة المجانية = 0). فعّل الفوترة أو جرّب لاحقًا.'
-            : 'Gemini quota/rate limit exceeded (your free quota may be 0). Enable billing or try again later.'
-        );
-      } else if (msg.includes('API_KEY_INVALID') || msg.toLowerCase().includes('api key')) {
+      if (response.status === 401 || response.status === 403) {
         toast.error(language === 'ar' ? 'مفتاح API غير صالح. تحقّق منه ثم جرّب مرة أخرى.' : 'Invalid API key. Please check and try again.');
+      } else if (response.status === 429) {
+        toast.error(language === 'ar' ? 'تم تجاوز الحد. حاول مرة أخرى لاحقًا.' : 'Rate limit exceeded. Try again later.');
       } else {
         toast.error(t.connectionFailed);
       }
@@ -387,6 +382,33 @@ export default function Settings() {
       toast.error(t.connectionFailed);
     } finally {
       setIsTestingGemini(false);
+    }
+  };
+
+  const setupTelegramWebhook = async () => {
+    if (!telegramBotToken.trim()) {
+      toast.error(language === 'ar' ? 'الرجاء إدخال رمز البوت' : 'Please enter bot token');
+      return;
+    }
+    
+    setIsSettingUpWebhook(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-bot', {
+        body: { action: 'setup_webhook', bot_token: telegramBotToken },
+      });
+
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(t.webhookSuccess);
+      } else {
+        toast.error(t.webhookFailed);
+      }
+    } catch (error) {
+      console.error('Webhook setup error:', error);
+      toast.error(t.webhookFailed);
+    } finally {
+      setIsSettingUpWebhook(false);
     }
   };
   // Apply theme color, background, font, and RTL on mount
@@ -688,7 +710,7 @@ export default function Settings() {
             
             <div className="flex items-center gap-2">
               <a
-                href="https://aistudio.google.com/app/apikey"
+                href="https://openrouter.ai/keys"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline flex items-center gap-1"
@@ -746,6 +768,17 @@ export default function Settings() {
             </div>
             
             <p className="text-xs text-muted-foreground">{t.telegramBotTokenHelp}</p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={setupTelegramWebhook}
+              disabled={isSettingUpWebhook || !telegramBotToken.trim() || !telegramChatId.trim()}
+            >
+              {isSettingUpWebhook ? t.testing : t.setupWebhook}
+            </Button>
           </div>
         </div>
 
