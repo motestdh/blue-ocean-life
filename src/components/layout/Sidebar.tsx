@@ -41,7 +41,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed top-0 z-40 h-screen bg-sidebar border-sidebar-border transition-all duration-300 ease-out flex flex-col',
+        'fixed top-0 z-40 h-screen bg-sidebar/95 backdrop-blur-xl border-sidebar-border transition-all duration-300 ease-out flex flex-col',
         rtlEnabled ? 'right-0 border-l' : 'left-0 border-r',
         sidebarCollapsed ? 'w-16' : 'w-60'
       )}
@@ -53,24 +53,27 @@ export function Sidebar() {
       )}>
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary-foreground" />
+            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold text-foreground">LifeOS</span>
+            <span className="font-bold text-foreground gradient-text">Blitzit</span>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
-        >
-          {sidebarCollapsed ? (
-            <Menu className="h-4 w-4" />
-          ) : (
+        {sidebarCollapsed && (
+          <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+        )}
+        {!sidebarCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+          >
             <ChevronLeft className={cn("h-4 w-4", rtlEnabled && "rotate-180")} />
-          )}
-        </Button>
+          </Button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -82,39 +85,80 @@ export function Sidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
                 sidebarCollapsed && 'justify-center px-2'
               )}
             >
+              {isActive && (
+                <div className={cn(
+                  "absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-full",
+                  rtlEnabled ? "right-0" : "left-0"
+                )} />
+              )}
               <item.icon className={cn(
                 'w-[18px] h-[18px] flex-shrink-0 transition-colors',
-                isActive ? 'text-primary-foreground' : 'group-hover:text-foreground'
+                isActive ? 'text-primary' : 'group-hover:text-foreground'
               )} />
               {!sidebarCollapsed && (
-                <span className="text-sm font-medium">{item.label}</span>
+                <span className={cn(
+                  "text-sm font-medium",
+                  isActive && "text-primary"
+                )}>
+                  {item.label}
+                </span>
               )}
             </NavLink>
           );
         })}
       </nav>
 
+      {/* Collapse Button (when collapsed) */}
+      {sidebarCollapsed && (
+        <div className="p-2 border-t border-sidebar-border">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="w-full h-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Settings */}
       <div className="p-2 border-t border-sidebar-border">
         <NavLink
           to="/settings"
           className={cn(
-            'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150',
+            'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative',
             location.pathname === '/settings' 
-              ? 'bg-sidebar-accent text-foreground' 
+              ? 'bg-primary/10 text-primary' 
               : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
             sidebarCollapsed && 'justify-center px-2'
           )}
         >
-          <Settings className="w-[18px] h-[18px]" />
-          {!sidebarCollapsed && <span className="text-sm font-medium">Settings</span>}
+          {location.pathname === '/settings' && (
+            <div className={cn(
+              "absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-full",
+              rtlEnabled ? "right-0" : "left-0"
+            )} />
+          )}
+          <Settings className={cn(
+            "w-[18px] h-[18px]",
+            location.pathname === '/settings' && "text-primary"
+          )} />
+          {!sidebarCollapsed && (
+            <span className={cn(
+              "text-sm font-medium",
+              location.pathname === '/settings' && "text-primary"
+            )}>
+              Settings
+            </span>
+          )}
         </NavLink>
       </div>
     </aside>

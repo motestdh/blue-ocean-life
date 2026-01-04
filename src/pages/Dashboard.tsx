@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { 
   FolderKanban, 
   CheckSquare, 
@@ -12,7 +13,12 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  Check
+  Check,
+  Play,
+  Pause,
+  MoreVertical,
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -25,220 +31,231 @@ import type { Database } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { format, isToday, isTomorrow, addDays } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { format, isToday, addDays } from 'date-fns';
 import { useAppStore } from '@/stores/useAppStore';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type Project = Database['public']['Tables']['projects']['Row'];
 type Task = Database['public']['Tables']['tasks']['Row'];
 
-// Stat Card Component
-function StatCard({ title, value, icon, iconBgColor = 'bg-primary/10' }: {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  iconBgColor?: string;
-}) {
+// Active Timer Display Component (Blitzit style)
+function ActiveTimer({ taskTitle, onPause }: { taskTitle: string; onPause: () => void }) {
+  const [time, setTime] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
-    <div className="bg-card rounded-xl border border-border p-5 hover-lift cursor-pointer">
-      <div className="flex items-start justify-between">
-        <div className={cn('p-2.5 rounded-lg', iconBgColor)}>
-          {icon}
+    <div className="blitzit-card p-4 gradient-primary text-white">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+          <span className="font-medium">{taskTitle}</span>
         </div>
-      </div>
-      <div className="mt-4">
-        <p className="text-2xl font-bold text-foreground">{value}</p>
-        <p className="text-sm text-muted-foreground mt-1">{title}</p>
+        <div className="flex items-center gap-4">
+          <span className="timer-display text-2xl font-bold">{formatTime(time)}</span>
+          <Button 
+            variant="secondary" 
+            size="icon" 
+            className="rounded-full h-8 w-8"
+            onClick={onPause}
+          >
+            <Pause className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-// Project Card Component
-function ProjectCard({ project }: { project: Project }) {
-  const statusColors: Record<string, string> = {
-    'new': 'bg-status-new/10 text-status-new',
-    'in-progress': 'bg-status-progress/10 text-status-progress',
-    'completed': 'bg-status-completed/10 text-status-completed',
-    'on-hold': 'bg-status-hold/10 text-status-hold',
-    'cancelled': 'bg-status-cancelled/10 text-status-cancelled',
+// Project List Card (Blitzit style)
+function ProjectListCard({ project, tasks }: { project: Project; tasks: Task[] }) {
+  const projectTasks = tasks.filter(t => t.project_id === project.id);
+  const pendingTasks = projectTasks.filter(t => t.status !== 'completed');
+  const estimatedTime = projectTasks.reduce((sum, t) => sum + (Number(t.estimated_time) || 0), 0);
+
+  const labelColors: Record<string, string> = {
+    'W': 'bg-blue-500',
+    'P': 'bg-pink-500',
+    'G': 'bg-green-500',
+    'C': 'bg-cyan-500',
+    'O': 'bg-orange-500',
   };
 
-  const priorityColors: Record<string, string> = {
-    high: 'border-l-priority-high',
-    medium: 'border-l-priority-medium',
-    low: 'border-l-priority-low',
-  };
+  const initial = project.title.charAt(0).toUpperCase();
+  const labelColor = labelColors[initial] || 'bg-primary';
 
   return (
-    <div className={cn(
-      'bg-card rounded-xl border border-border p-5 hover-lift cursor-pointer border-l-4',
-      priorityColors[project.priority]
-    )}>
-      <div className="flex items-center gap-3 mb-2">
-        <div 
-          className="w-3 h-3 rounded-full" 
-          style={{ backgroundColor: project.color || '#0EA5E9' }}
-        />
-        <h3 className="font-semibold text-foreground">{project.title}</h3>
-      </div>
-
-      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-        {project.description}
-      </p>
-
-      <div className="mt-4 space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Progress</span>
-          <span className="font-medium text-foreground">{project.progress || 0}%</span>
+    <Link to={`/projects/${project.id}`}>
+      <div className="blitzit-card p-5 hover-lift cursor-pointer group">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm font-bold', labelColor)}>
+              {initial}
+            </div>
+            <h3 className="font-semibold text-foreground truncate max-w-[180px]">{project.title}</h3>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem>Edit list</DropdownMenuItem>
+              <DropdownMenuItem>Share list</DropdownMenuItem>
+              <DropdownMenuItem>Duplicate</DropdownMenuItem>
+              <DropdownMenuItem>Archive list</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <Progress value={project.progress || 0} className="h-2" />
-      </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <span className={cn(
-          'text-xs font-medium px-2 py-1 rounded-full capitalize',
-          statusColors[project.status]
-        )}>
-          {project.status.replace('-', ' ')}
-        </span>
-        {project.due_date && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{format(new Date(project.due_date), 'MMM d')}</span>
+        {pendingTasks.length > 0 ? (
+          <>
+            <p className="text-xs text-muted-foreground mb-3">Upcoming</p>
+            <div className="space-y-2">
+              {pendingTasks.slice(0, 4).map((task, index) => (
+                <div 
+                  key={task.id} 
+                  className={cn(
+                    "flex items-center justify-between py-2 px-3 rounded-lg",
+                    index === 0 ? "bg-secondary/50" : ""
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{index + 1}</span>
+                    <span className="text-sm text-foreground truncate max-w-[150px]">{task.title}</span>
+                  </div>
+                  {task.due_date && (
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(task.due_date), 'EEE')}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <Check className="w-8 h-8 mb-2 text-primary" />
+            <span className="text-sm">All clear</span>
           </div>
         )}
+
+        <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{pendingTasks.length} pending tasks</span>
+          <span>Est: {Math.floor(estimatedTime / 60)}hr {estimatedTime % 60}mins</span>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
-// Task Item Component
-function TaskItem({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) {
-  const priorityDotColors: Record<string, string> = {
-    high: 'bg-priority-high',
-    medium: 'bg-priority-medium',
-    low: 'bg-priority-low',
+// Task Item Component (Blitzit style)
+function TaskItem({ task, onToggle, onStartTimer }: { 
+  task: Task; 
+  onToggle: (id: string) => void;
+  onStartTimer: (task: Task) => void;
+}) {
+  const estimatedMins = Number(task.estimated_time) || 0;
+  const actualMins = Number(task.actual_time) || 0;
+  
+  const formatDuration = (mins: number) => {
+    if (mins >= 60) {
+      const hrs = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${hrs}hr ${m}min`;
+    }
+    return `${mins}min`;
   };
 
   return (
     <div className={cn(
-      'group flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 transition-all duration-200',
+      'group flex items-center gap-3 p-4 rounded-xl blitzit-card hover:border-primary/30 transition-all duration-200',
       task.status === 'completed' && 'opacity-60'
     )}>
-      <Checkbox
-        checked={task.status === 'completed'}
-        onCheckedChange={() => onToggle(task.id)}
-        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-      />
+      <Button
+        variant={task.status === 'completed' ? 'default' : 'outline'}
+        size="icon"
+        className={cn(
+          'h-8 w-8 rounded-full shrink-0',
+          task.status === 'completed' && 'bg-primary border-primary'
+        )}
+        onClick={() => onToggle(task.id)}
+      >
+        {task.status === 'completed' && <Check className="w-4 h-4" />}
+      </Button>
+
       <div className="flex-1 min-w-0">
         <p className={cn(
-          'font-medium text-foreground truncate',
+          'font-medium text-foreground',
           task.status === 'completed' && 'line-through text-muted-foreground'
         )}>
           {task.title}
         </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {formatDuration(estimatedMins)}
+        </p>
       </div>
+
       <div className="flex items-center gap-3">
-        <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
-        {task.due_date && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{format(new Date(task.due_date), 'MMM d')}</span>
-          </div>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100"
+          onClick={() => onStartTimer(task)}
+        >
+          <Play className="w-4 h-4" />
+        </Button>
+        
+        <span className="text-sm text-muted-foreground timer-display">
+          {actualMins > 0 ? formatDuration(actualMins) : '00:00'}
+        </span>
       </div>
     </div>
   );
 }
 
-// Finance Summary Component
-function FinanceSummary({ income, expenses, balance }: { income: number; expenses: number; balance: number }) {
+// Done Task Item
+function DoneTaskItem({ task }: { task: Task }) {
+  const actualMins = Number(task.actual_time) || 0;
+  const formatDuration = (mins: number) => {
+    if (mins >= 60) {
+      const hrs = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${hrs}hr ${m}min`;
+    }
+    return `${mins}min`;
+  };
+
   return (
-    <div className="bg-card rounded-xl border border-border p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Wallet className="w-5 h-5 text-primary" />
-        <h3 className="font-semibold text-foreground">Financial Overview</h3>
+    <div className="flex items-center gap-3 py-2">
+      <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center">
+        <Check className="w-3 h-3 text-primary" />
       </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-success" />
-            </div>
-            <span className="text-sm text-muted-foreground">Income</span>
-          </div>
-          <span className="font-semibold text-success">
-            +${income.toLocaleString()}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
-              <TrendingDown className="w-4 h-4 text-destructive" />
-            </div>
-            <span className="text-sm text-muted-foreground">Expenses</span>
-          </div>
-          <span className="font-semibold text-destructive">
-            -${expenses.toLocaleString()}
-          </span>
-        </div>
-
-        <div className="pt-3 border-t border-border">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">Balance</span>
-            <span className={cn(
-              'text-lg font-bold',
-              balance >= 0 ? 'text-success' : 'text-destructive'
-            )}>
-              ${balance.toLocaleString()}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Habit Card Component
-function HabitCard({ habit, isCompleted, onToggle }: { 
-  habit: Database['public']['Tables']['habits']['Row']; 
-  isCompleted: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200">
-      <Button
-        variant={isCompleted ? 'default' : 'outline'}
-        size="icon"
-        onClick={onToggle}
-        className={cn(
-          'h-10 w-10 rounded-full transition-all duration-300',
-          isCompleted && 'shadow-glow'
-        )}
-        style={{ 
-          backgroundColor: isCompleted ? (habit.color || '#0EA5E9') : undefined,
-          borderColor: habit.color || '#0EA5E9'
-        }}
-      >
-        {isCompleted ? (
-          <Check className="h-5 w-5 text-white" />
-        ) : (
-          <span className="text-lg">{habit.icon}</span>
-        )}
-      </Button>
-
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground">{habit.name}</p>
-        <p className="text-sm text-muted-foreground">{habit.description}</p>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-sm">
-        <Flame className="w-4 h-4 text-warning" />
-        <span className="font-semibold text-foreground">{habit.current_streak || 0}</span>
-        <span className="text-muted-foreground">day streak</span>
-      </div>
+      <span className="text-sm text-muted-foreground line-through flex-1 truncate">
+        {task.title}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {formatDuration(actualMins)}
+      </span>
     </div>
   );
 }
@@ -251,33 +268,20 @@ export default function Dashboard() {
   const { sessionsToday, totalFocusTime, formatDuration } = useFocusSessions();
   const { language } = useAppStore();
 
+  const [activeTimer, setActiveTimer] = useState<Task | null>(null);
+
   const today = new Date().toISOString().split('T')[0];
-  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
   
-  const activeProjects = projects.filter(p => p.status === 'in-progress').length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const totalStreak = habits.reduce((sum, h) => sum + (h.current_streak || 0), 0);
-  
-  const todayTasks = tasks.filter(t => {
-    if (!t.due_date) return false;
-    return t.due_date === today && t.status !== 'completed';
-  }).slice(0, 5);
+  const completedTasks = tasks.filter(t => t.status === 'completed');
+  const pendingTasks = tasks.filter(t => t.status !== 'completed');
+  const todayTasks = pendingTasks.filter(t => t.due_date === today);
+  const completedToday = completedTasks.filter(t => {
+    const updated = new Date(t.updated_at);
+    return isToday(updated);
+  });
 
-  // Upcoming deadlines (next 7 days)
-  const upcomingDeadlines = tasks
-    .filter(t => {
-      if (!t.due_date || t.status === 'completed') return false;
-      const dueDate = new Date(t.due_date);
-      const now = new Date();
-      const weekFromNow = addDays(now, 7);
-      return dueDate >= now && dueDate <= weekFromNow;
-    })
-    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
-    .slice(0, 5);
-
-  const upcomingProjects = projects
-    .filter(p => p.status !== 'completed' && p.status !== 'cancelled')
-    .slice(0, 3);
+  const totalEstimated = pendingTasks.reduce((sum, t) => sum + (Number(t.estimated_time) || 0), 0);
+  const totalActual = completedToday.reduce((sum, t) => sum + (Number(t.actual_time) || 0), 0);
 
   const handleTaskToggle = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
@@ -288,16 +292,8 @@ export default function Dashboard() {
     }
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (language === 'ar') {
-      if (hour < 12) return 'صباح الخير! 👋';
-      if (hour < 18) return 'مساء الخير! 👋';
-      return 'مساء الخير! 👋';
-    }
-    if (hour < 12) return 'Good morning! 👋';
-    if (hour < 18) return 'Good afternoon! 👋';
-    return 'Good evening! 👋';
+  const handleStartTimer = (task: Task) => {
+    setActiveTimer(task);
   };
 
   const isLoading = projectsLoading || tasksLoading || habitsLoading || transactionsLoading;
@@ -311,159 +307,168 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Welcome Section */}
+    <div className="space-y-6 animate-fade-in blitzit-gradient-subtle min-h-screen -m-6 p-6">
+      {/* Active Timer (if running) */}
+      {activeTimer && (
+        <ActiveTimer 
+          taskTitle={activeTimer.title} 
+          onPause={() => setActiveTimer(null)} 
+        />
+      )}
+
+      {/* Header with Today's Overview */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            {getGreeting()}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {language === 'ar' 
-              ? 'إليك ما يحدث مع مشاريعك اليوم.'
-              : "Here's what's happening with your projects today."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="w-4 h-4" />
-          <span>{new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
-          })}</span>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard
-          title={language === 'ar' ? 'المشاريع النشطة' : 'Active Projects'}
-          value={activeProjects}
-          icon={<FolderKanban className="w-5 h-5 text-primary" />}
-        />
-        <StatCard
-          title={language === 'ar' ? 'المهام المكتملة' : 'Tasks Done'}
-          value={`${completedTasks}/${tasks.length}`}
-          icon={<CheckSquare className="w-5 h-5 text-success" />}
-          iconBgColor="bg-success/10"
-        />
-        <StatCard
-          title={language === 'ar' ? 'سلسلة العادات' : 'Habit Streak'}
-          value={`${totalStreak}`}
-          icon={<Flame className="w-5 h-5 text-warning" />}
-          iconBgColor="bg-warning/10"
-        />
-        <StatCard
-          title={language === 'ar' ? 'جلسات اليوم' : 'Focus Today'}
-          value={sessionsToday}
-          icon={<Timer className="w-5 h-5 text-primary" />}
-        />
-        <StatCard
-          title={language === 'ar' ? 'وقت التركيز' : 'Focus Time'}
-          value={formatDuration(totalFocusTime)}
-          icon={<Zap className="w-5 h-5 text-primary" />}
-        />
-        <StatCard
-          title={language === 'ar' ? 'هذا الشهر' : 'This Month'}
-          value={`$${income.toLocaleString()}`}
-          icon={<DollarSign className="w-5 h-5 text-success" />}
-          iconBgColor="bg-success/10"
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's Tasks */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Today's Priority</h2>
-            </div>
-            <Link to="/tasks">
-              <Button variant="ghost" size="sm">View all</Button>
-            </Link>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" className="gap-2">
+            All
+            <ChevronDown className="w-4 h-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground">Today</h1>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="w-4 h-4" />
+            <Clock className="w-4 h-4" />
           </div>
-          <div className="space-y-2">
+        </div>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>Est: {Math.floor(totalEstimated / 60)}hrs</span>
+          <div className="flex items-center gap-2">
+            <Progress 
+              value={(completedToday.length / Math.max(todayTasks.length + completedToday.length, 1)) * 100} 
+              className="w-24 h-2" 
+            />
+            <span>{completedToday.length}/{todayTasks.length + completedToday.length} DONE</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Task List */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Today's Tasks */}
+          <div className="space-y-3">
             {todayTasks.length > 0 ? (
               todayTasks.map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={handleTaskToggle} />
+                <TaskItem 
+                  key={task.id} 
+                  task={task} 
+                  onToggle={handleTaskToggle}
+                  onStartTimer={handleStartTimer}
+                />
               ))
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <CheckSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No tasks for today. Enjoy your day! 🎉</p>
+              <div className="blitzit-card p-8 text-center">
+                <Check className="w-12 h-12 mx-auto mb-3 text-primary" />
+                <p className="text-muted-foreground">No tasks for today. Enjoy your day! 🎉</p>
               </div>
             )}
           </div>
 
+          {/* Add Task Button */}
+          <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
+            <Plus className="w-4 h-4" />
+            ADD TASK
+          </Button>
+
+          {/* Scheduled Tasks */}
+          {pendingTasks.filter(t => t.due_date && t.due_date !== today).length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">
+                  {pendingTasks.filter(t => t.due_date && t.due_date !== today).length} Scheduled tasks
+                </span>
+                <Plus className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                {pendingTasks
+                  .filter(t => t.due_date && t.due_date !== today)
+                  .slice(0, 3)
+                  .map((task) => (
+                    <div 
+                      key={task.id}
+                      className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/30"
+                    >
+                      <span className="text-sm text-foreground">{task.title}</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{task.due_date && format(new Date(task.due_date), 'EEE ha')}</span>
+                        <span>00:00</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Done Section */}
+          {completedToday.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">
+                  {completedToday.length} Done
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {Math.floor(totalActual / 60)}hr {totalActual % 60}min
+                </span>
+              </div>
+              <div className="space-y-1">
+                {completedToday.map((task) => (
+                  <DoneTaskItem key={task.id} task={task} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column - Focus Timer Preview */}
+        <div className="space-y-6">
           {/* Focus Mode CTA */}
           <Link to="/focus">
-            <div className="mt-6 p-5 rounded-xl gradient-primary text-white hover:opacity-90 transition-opacity cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">Start Focus Session</h3>
-                  <p className="text-white/80 text-sm mt-1">
-                    25 min focused work • No distractions
-                  </p>
+            <div className="blitzit-card p-6 hover-lift cursor-pointer relative overflow-hidden">
+              <div className="absolute inset-0 gradient-primary opacity-10" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-foreground">Start Focus</h3>
+                  <Zap className="w-5 h-5 text-primary" />
                 </div>
-                <Button variant="secondary" size="sm" className="gap-2">
-                  <Target className="w-4 h-4" />
-                  Start Now
+                <p className="text-sm text-muted-foreground mb-4">
+                  25 min focused work session
+                </p>
+                <Button className="w-full gradient-button text-white border-0">
+                  <Target className="w-4 h-4 mr-2" />
+                  Blitzit now
                 </Button>
               </div>
             </div>
           </Link>
-        </div>
 
-        {/* Right Sidebar */}
-        <div className="space-y-6">
-          {/* Finance Summary */}
-          <FinanceSummary income={income} expenses={expenses} balance={balance} />
-
-          {/* Habits */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Today's Habits</h2>
-              <Link to="/habits">
-                <Button variant="ghost" size="sm">View all</Button>
-              </Link>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="blitzit-card p-4 text-center">
+              <p className="text-2xl font-bold text-foreground">{sessionsToday}</p>
+              <p className="text-xs text-muted-foreground">Sessions today</p>
             </div>
-            <div className="space-y-3">
-              {habits.slice(0, 3).map((habit) => (
-                <HabitCard 
-                  key={habit.id} 
-                  habit={habit} 
-                  isCompleted={isCompletedOnDate(habit.id, today)}
-                  onToggle={() => toggleHabitCompletion(habit.id, today)}
-                />
-              ))}
-              {habits.length === 0 && (
-                <div className="text-center py-4 text-muted-foreground text-sm">
-                  No habits yet. Create one to get started!
-                </div>
-              )}
+            <div className="blitzit-card p-4 text-center">
+              <p className="text-2xl font-bold text-foreground">{formatDuration(totalFocusTime)}</p>
+              <p className="text-xs text-muted-foreground">Focus time</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Active Projects */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Active Projects</h2>
-          <Link to="/projects">
-            <Button variant="ghost" size="sm">View all</Button>
-          </Link>
+      {/* Project Lists Section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Your Lists</h2>
+          <span className="text-sm text-muted-foreground">Lists with your upcoming tasks</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {upcomingProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+          {projects.slice(0, 6).map((project) => (
+            <ProjectListCard key={project.id} project={project} tasks={tasks} />
           ))}
-          {upcomingProjects.length === 0 && (
-            <div className="col-span-full text-center py-8 text-muted-foreground">
+          {projects.length === 0 && (
+            <div className="col-span-full blitzit-card p-8 text-center">
               <FolderKanban className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No active projects. Create your first project!</p>
+              <p className="text-muted-foreground">No projects yet. Create your first project!</p>
             </div>
           )}
         </div>
