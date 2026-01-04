@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, LayoutList, Kanban, ChevronRight, ChevronDown, Edit2 } from 'lucide-react';
+import { Plus, Search, Calendar, CheckCircle2, Clock, Loader2, GripVertical, Play, Pause, LayoutList, Kanban, ChevronRight, ChevronDown, Edit2, Trash2 } from 'lucide-react';
 import { ExportButton } from '@/components/export/ExportButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +58,7 @@ interface SortableTaskItemProps {
   task: Task;
   onToggle: () => void;
   onEdit: (task: Task) => void;
+  onDelete: (taskId: string) => void;
   onTimeUpdate: (taskId: string, time: number) => void;
   timerState: { [key: string]: { isRunning: boolean; seconds: number } };
   onTimerToggle: (taskId: string) => void;
@@ -66,7 +67,7 @@ interface SortableTaskItemProps {
   allTasks: Task[];
 }
 
-function SortableTaskItem({ task, onToggle, onEdit, onTimeUpdate, timerState, onTimerToggle, onAddSubtask, subtasks, allTasks }: SortableTaskItemProps) {
+function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, timerState, onTimerToggle, onAddSubtask, subtasks, allTasks }: SortableTaskItemProps) {
   const [expanded, setExpanded] = useState(false);
   const {
     attributes,
@@ -162,6 +163,15 @@ function SortableTaskItem({ task, onToggle, onEdit, onTimeUpdate, timerState, on
             <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
 
+          {/* Delete Button */}
+          <button
+            onClick={() => onDelete(task.id)}
+            className="p-1.5 rounded hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+            title="Delete task"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+          </button>
+
           {/* Add Subtask Button */}
           {task.status !== 'completed' && (
             <button
@@ -223,6 +233,7 @@ function SortableTaskItem({ task, onToggle, onEdit, onTimeUpdate, timerState, on
               task={subtask}
               onToggle={() => onToggle()}
               onEdit={onEdit}
+              onDelete={onDelete}
               onTimeUpdate={onTimeUpdate}
               timerState={timerState}
               onTimerToggle={onTimerToggle}
@@ -238,7 +249,7 @@ function SortableTaskItem({ task, onToggle, onEdit, onTimeUpdate, timerState, on
 }
 
 export default function Tasks() {
-  const { tasks, loading, addTask, updateTask } = useTasks();
+  const { tasks, loading, addTask, updateTask, deleteTask } = useTasks();
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
@@ -328,6 +339,17 @@ export default function Tasks() {
     setLocalTasks(prev => prev.map(t => 
       t.id === task.id ? { ...t, status: task.status === 'completed' ? 'todo' : 'completed' } : t
     ));
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    // Also delete subtasks
+    const subtasksToDelete = displayTasks.filter(t => t.parent_task_id === taskId);
+    for (const subtask of subtasksToDelete) {
+      await deleteTask(subtask.id);
+    }
+    await deleteTask(taskId);
+    setLocalTasks(prev => prev.filter(t => t.id !== taskId && t.parent_task_id !== taskId));
+    toast({ title: 'Success', description: 'Task deleted!' });
   };
 
   const handleTimerToggle = async (taskId: string) => {
@@ -437,6 +459,7 @@ export default function Tasks() {
                 task={task} 
                 onToggle={() => handleToggle(task)}
                 onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
                 onTimeUpdate={handleTimeUpdate}
                 timerState={timerState}
                 onTimerToggle={handleTimerToggle}
