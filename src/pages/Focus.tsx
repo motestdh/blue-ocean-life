@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTasks } from '@/hooks/useTasks';
 import { useFocusSessions } from '@/hooks/useFocusSessions';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,9 @@ const SESSION_DURATIONS: Record<SessionType, number> = {
 };
 
 export default function Focus() {
+  const [searchParams] = useSearchParams();
+  const taskIdFromUrl = searchParams.get('task');
+  
   const { tasks, loading, updateTask } = useTasks();
   const { 
     sessionsToday, 
@@ -31,9 +35,23 @@ export default function Focus() {
   const [timeRemaining, setTimeRemaining] = useState(SESSION_DURATIONS['focus']);
   const [isRunning, setIsRunning] = useState(false);
   const [activeFocusTask, setActiveFocusTask] = useState<string | null>(null);
+  const [autoStarted, setAutoStarted] = useState(false);
 
   const activeTask = tasks.find(t => t.id === activeFocusTask);
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
+
+  // Auto-select and start task from URL parameter
+  useEffect(() => {
+    if (taskIdFromUrl && !autoStarted && tasks.length > 0) {
+      const task = tasks.find(t => t.id === taskIdFromUrl);
+      if (task && task.status !== 'completed') {
+        setActiveFocusTask(taskIdFromUrl);
+        setAutoStarted(true);
+        // Auto-start the focus session
+        handleStart(taskIdFromUrl);
+      }
+    }
+  }, [taskIdFromUrl, tasks, autoStarted]);
 
   // Timer effect
   useEffect(() => {

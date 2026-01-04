@@ -81,6 +81,7 @@ function SortableTaskItem({
   onEdit,
   onAddSubtask,
   onTimerToggle,
+  onFocusStart,
   timerState,
   subtasks = [],
   level = 0,
@@ -91,6 +92,7 @@ function SortableTaskItem({
   onEdit: (task: Task) => void;
   onAddSubtask?: (parentId: string) => void;
   onTimerToggle: (taskId: string) => void;
+  onFocusStart: (taskId: string) => void;
   timerState: { [key: string]: { isRunning: boolean; seconds: number } };
   subtasks?: Task[];
   level?: number;
@@ -176,16 +178,23 @@ function SortableTaskItem({
               <Clock className="w-3 h-3" />
               <span>{formatTime(timer.seconds)}</span>
             </div>
-            <button
-              onClick={() => onTimerToggle(task.id)}
-              className="p-1 rounded hover:bg-muted transition-colors"
-            >
-              {timer.isRunning ? (
+            {timer.isRunning ? (
+              <button
+                onClick={() => onTimerToggle(task.id)}
+                className="p-1 rounded hover:bg-muted transition-colors"
+                title="Pause timer"
+              >
                 <Pause className="w-3.5 h-3.5 text-primary" />
-              ) : (
+              </button>
+            ) : (
+              <button
+                onClick={() => onFocusStart(task.id)}
+                className="p-1 rounded hover:bg-muted transition-colors"
+                title="Start Focus Mode"
+              >
                 <Play className="w-3.5 h-3.5 text-muted-foreground" />
-              )}
-            </button>
+              </button>
+            )}
           </div>
         )}
         
@@ -240,6 +249,7 @@ function SortableTaskItem({
               onDelete={onDelete}
               onEdit={onEdit}
               onTimerToggle={onTimerToggle}
+              onFocusStart={onFocusStart}
               timerState={timerState}
               level={level + 1}
             />
@@ -471,6 +481,10 @@ export default function ProjectDetail() {
     }));
   };
 
+  const handleFocusStart = (taskId: string) => {
+    navigate(`/focus?task=${taskId}`);
+  };
+
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setEditTaskDialogOpen(true);
@@ -611,6 +625,7 @@ export default function ProjectDetail() {
                   onEdit={handleEditTask}
                   onAddSubtask={handleOpenSubtaskDialog}
                   onTimerToggle={handleTimerToggle}
+                  onFocusStart={handleFocusStart}
                   timerState={timerState}
                   subtasks={getSubtasks(task.id)}
                 />
