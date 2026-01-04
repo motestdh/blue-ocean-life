@@ -349,9 +349,7 @@ export default function ProjectDetail() {
   }, [project]);
 
   useEffect(() => {
-    if (tasks.length > 0) {
-      setLocalTasks(tasks);
-    }
+    setLocalTasks(tasks);
   }, [tasks]);
 
   const displayTasks = localTasks.length > 0 ? localTasks : tasks;
@@ -425,7 +423,17 @@ export default function ProjectDetail() {
   const handleToggleTask = async (taskId: string, completed: boolean) => {
     const newStatus = completed ? 'completed' : 'todo';
     await updateTask(taskId, { status: newStatus as 'completed' | 'in-progress' | 'todo' });
-    setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as 'completed' | 'in-progress' | 'todo' } : t));
+    
+    // Update local tasks
+    const updatedTasks = localTasks.map(t => t.id === taskId ? { ...t, status: newStatus as 'completed' | 'in-progress' | 'todo' } : t);
+    setLocalTasks(updatedTasks);
+    
+    // Calculate and update project progress
+    const completedCount = updatedTasks.filter(t => t.status === 'completed').length;
+    const newProgress = updatedTasks.length > 0 ? Math.round((completedCount / updatedTasks.length) * 100) : 0;
+    if (id) {
+      await updateProject(id, { progress: newProgress });
+    }
   };
 
   const handleDeleteTask = async (taskId: string) => {
