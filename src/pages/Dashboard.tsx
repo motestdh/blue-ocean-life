@@ -27,12 +27,13 @@ import { useTasks } from '@/hooks/useTasks';
 import { useHabits } from '@/hooks/useHabits';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useFocusSessions } from '@/hooks/useFocusSessions';
+import { useCourses } from '@/hooks/useCourses';
 import type { Database } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { format, isToday, addDays } from 'date-fns';
+import { format, isToday, addDays, isTomorrow } from 'date-fns';
 import { useAppStore } from '@/stores/useAppStore';
 import {
   DropdownMenu,
@@ -41,10 +42,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// New widget imports
+import { TimeOverviewCards } from '@/components/dashboard/TimeOverviewCards';
+import { HabitsWidget } from '@/components/dashboard/HabitsWidget';
+import { FinanceSummaryCard } from '@/components/dashboard/FinanceSummaryCard';
+import { LearningWidget } from '@/components/dashboard/LearningWidget';
+import { WeekPreview } from '@/components/dashboard/WeekPreview';
+import { UpcomingDeadlines } from '@/components/dashboard/UpcomingDeadlines';
+
 type Project = Database['public']['Tables']['projects']['Row'];
 type Task = Database['public']['Tables']['tasks']['Row'];
 
-// Active Timer Display Component (Blitzit style)
+// Active Timer Display Component
 function ActiveTimer({ taskTitle, onPause }: { taskTitle: string; onPause: () => void }) {
   const [time, setTime] = useState(0);
   
@@ -85,7 +94,7 @@ function ActiveTimer({ taskTitle, onPause }: { taskTitle: string; onPause: () =>
   );
 }
 
-// Project List Card (Blitzit style)
+// Project List Card
 function ProjectListCard({ project, tasks }: { project: Project; tasks: Task[] }) {
   const projectTasks = tasks.filter(t => t.project_id === project.id);
   const pendingTasks = projectTasks.filter(t => t.status !== 'completed');
@@ -168,7 +177,7 @@ function ProjectListCard({ project, tasks }: { project: Project; tasks: Task[] }
   );
 }
 
-// Task Item Component (Blitzit style)
+// Task Item Component
 function TaskItem({ task, onToggle, onStartTimer }: { 
   task: Task; 
   onToggle: (id: string) => void;
@@ -266,22 +275,27 @@ export default function Dashboard() {
   const { habits, loading: habitsLoading, isCompletedOnDate, toggleHabitCompletion } = useHabits();
   const { income, expenses, balance, loading: transactionsLoading } = useTransactions();
   const { sessionsToday, totalFocusTime, formatDuration } = useFocusSessions();
+  const { courses, loading: coursesLoading } = useCourses();
   const { language } = useAppStore();
 
   const [activeTimer, setActiveTimer] = useState<Task | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
   
   const completedTasks = tasks.filter(t => t.status === 'completed');
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
   const todayTasks = pendingTasks.filter(t => t.due_date === today);
+  const tomorrowTasks = pendingTasks.filter(t => t.due_date === tomorrow);
   const completedToday = completedTasks.filter(t => {
     const updated = new Date(t.updated_at);
     return isToday(updated);
   });
 
-  const totalEstimated = pendingTasks.reduce((sum, t) => sum + (Number(t.estimated_time) || 0), 0);
-  const totalActual = completedToday.reduce((sum, t) => sum + (Number(t.actual_time) || 0), 0);
+  // Time calculations
+  const todayEstimated = todayTasks.reduce((sum, t) => sum + (Number(t.estimated_time) || 0), 0);
+  const todayActual = completedToday.reduce((sum, t) => sum + (Number(t.actual_time) || 0), 0);
+  const tomorrowEstimated = tomorrowTasks.reduce((sum, t) => sum + (Number(t.estimated_time) || 0), 0);
 
   const handleTaskToggle = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
@@ -296,7 +310,11 @@ export default function Dashboard() {
     setActiveTimer(task);
   };
 
-  const isLoading = projectsLoading || tasksLoading || habitsLoading || transactionsLoading;
+  const handleHabitToggle = (habitId: string, date: string) => {
+    toggleHabitCompletion(habitId, date);
+  };
+
+  const isLoading = projectsLoading || tasksLoading || habitsLoading || transactionsLoading || coursesLoading;
 
   if (isLoading) {
     return (
@@ -316,6 +334,15 @@ export default function Dashboard() {
         />
       )}
 
+      {/* Time Overview Cards - NEW */}
+      <TimeOverviewCards
+        todayEstimated={todayEstimated}
+        todayActual={todayActual}
+        todayTaskCount={todayTasks.length}
+        tomorrowEstimated={tomorrowEstimated}
+        tomorrowTaskCount={tomorrowTasks.length}
+      />
+
       {/* Header with Today's Overview */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -330,7 +357,6 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>Est: {Math.floor(totalEstimated / 60)}hrs</span>
           <div className="flex items-center gap-2">
             <Progress 
               value={(completedToday.length / Math.max(todayTasks.length + completedToday.length, 1)) * 100} 
@@ -359,7 +385,7 @@ export default function Dashboard() {
             ) : (
               <div className="blitzit-card p-8 text-center">
                 <Check className="w-12 h-12 mx-auto mb-3 text-primary" />
-                <p className="text-muted-foreground">No tasks for today. Enjoy your day! 🎉</p>
+                <p className="text-muted-foreground">No tasks for today. Enjoy your day!</p>
               </div>
             )}
           </div>
@@ -407,7 +433,7 @@ export default function Dashboard() {
                   {completedToday.length} Done
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {Math.floor(totalActual / 60)}hr {totalActual % 60}min
+                  {Math.floor(todayActual / 60)}hr {todayActual % 60}min
                 </span>
               </div>
               <div className="space-y-1">
@@ -419,7 +445,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right Column - Focus Timer Preview */}
+        {/* Right Column - Widgets */}
         <div className="space-y-6">
           {/* Focus Mode CTA */}
           <Link to="/focus">
@@ -452,7 +478,32 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">Focus time</p>
             </div>
           </div>
+
+          {/* Habits Widget - NEW */}
+          <HabitsWidget
+            habits={habits}
+            isCompletedOnDate={isCompletedOnDate}
+            onToggle={handleHabitToggle}
+          />
+
+          {/* Finance Summary - NEW */}
+          <FinanceSummaryCard
+            income={income}
+            expenses={expenses}
+            balance={balance}
+          />
         </div>
+      </div>
+
+      {/* Week Preview & Learning Section - NEW */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <WeekPreview tasks={tasks} />
+        <UpcomingDeadlines tasks={tasks} projects={projects} />
+      </div>
+
+      {/* Learning Widget - NEW */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <LearningWidget courses={courses} />
       </div>
 
       {/* Project Lists Section */}
