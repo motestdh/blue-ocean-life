@@ -261,6 +261,7 @@ export type Database = {
           duration_minutes: number | null
           id: string
           is_completed: boolean | null
+          section: string | null
           sort_order: number | null
           title: string
           updated_at: string
@@ -274,6 +275,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           is_completed?: boolean | null
+          section?: string | null
           sort_order?: number | null
           title: string
           updated_at?: string
@@ -287,6 +289,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           is_completed?: boolean | null
+          section?: string | null
           sort_order?: number | null
           title?: string
           updated_at?: string
