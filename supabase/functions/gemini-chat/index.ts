@@ -24,6 +24,7 @@ const tools = [
           priority: { type: "string", enum: ["low", "medium", "high"] },
           due_date: { type: "string", description: "Due date in YYYY-MM-DD format" },
           project_id: { type: "string", description: "Project UUID to link task to (must be a valid UUID from search_project)" },
+          estimated_time: { type: "number", description: "Estimated time in minutes (e.g., 30 for 30 minutes, 60 for 1 hour)" },
         },
         required: ["action"],
       },
@@ -240,6 +241,50 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_week_schedule",
+      description: "Get the complete schedule for the current week or a specific week, showing tasks and their estimated times for each day",
+      parameters: {
+        type: "object",
+        properties: {
+          week_offset: { type: "number", description: "0 for current week, 1 for next week, -1 for last week (default: 0)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_course",
+      description: "Search for a course by name to get its UUID. Use this before adding lessons to find the course ID.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Course name or partial name to search for" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "manage_focus_sessions",
+      description: "Start, stop, list, or get stats for focus/pomodoro sessions",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["start", "stop", "list", "stats"] },
+          task_id: { type: "string", description: "Task UUID to link the focus session to" },
+          session_type: { type: "string", enum: ["focus", "break"], description: "Type of session (default: focus)" },
+        },
+        required: ["action"],
+      },
+    },
+  },
 ];
 
 // Execute tool functions
@@ -275,6 +320,12 @@ async function executeTool(
         return await handleClients(supabase, userId, args);
       case "get_summary":
         return await handleSummary(supabase, userId, args);
+      case "get_week_schedule":
+        return await handleWeekSchedule(supabase, userId, args);
+      case "search_course":
+        return await handleSearchCourse(supabase, userId, args);
+      case "manage_focus_sessions":
+        return await handleFocusSessions(supabase, userId, args);
       default:
         return { success: false, message: `Unknown tool: ${toolName}` };
     }
@@ -326,7 +377,7 @@ async function handleSearchProject(supabase: any, userId: string, args: any) {
 
 // Handler functions for each entity
 async function handleTasks(supabase: any, userId: string, args: any) {
-  const { action, task_id, title, description, status, priority, due_date, project_id } = args;
+  const { action, task_id, title, description, status, priority, due_date, project_id, estimated_time } = args;
 
   switch (action) {
     case "create":
@@ -341,11 +392,12 @@ async function handleTasks(supabase: any, userId: string, args: any) {
           priority: priority || "medium",
           due_date: due_date || null,
           project_id: project_id || null,
+          estimated_time: estimated_time || null,
         })
         .select()
         .single();
       if (createError) throw createError;
-      return { success: true, message: `Created task: "${newTask.title}"`, data: newTask };
+      return { success: true, message: `Created task: "${newTask.title}"${estimated_time ? ` (${estimated_time} min)` : ''}`, data: newTask };
 
     case "update":
       if (!task_id) return { success: false, message: "Task ID is required to update" };
@@ -356,6 +408,7 @@ async function handleTasks(supabase: any, userId: string, args: any) {
       if (priority) updates.priority = priority;
       if (due_date) updates.due_date = due_date;
       if (project_id) updates.project_id = project_id;
+      if (estimated_time !== undefined) updates.estimated_time = estimated_time;
       
       const { data: updatedTask, error: updateError } = await supabase
         .from("tasks")
@@ -1147,6 +1200,235 @@ async function handleSummary(supabase: any, userId: string, args: any) {
   return { success: true, message: `Summary for ${period || "all time"}`, data: summary };
 }
 
+// Get week schedule
+async function handleWeekSchedule(supabase: any, userId: string, args: any) {
+  const { week_offset = 0 } = args;
+  
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() + mondayOffset + (week_offset * 7));
+  weekStart.setHours(0, 0, 0, 0);
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+  
+  const startStr = weekStart.toISOString().split("T")[0];
+  const endStr = weekEnd.toISOString().split("T")[0];
+  
+  const { data: tasks, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("user_id", userId)
+    .neq("status", "completed")
+    .gte("due_date", startStr)
+    .lte("due_date", endStr)
+    .order("due_date", { ascending: true });
+  
+  if (error) throw error;
+  
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const todayStr = today.toISOString().split("T")[0];
+  
+  const days: any[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
+    const dateStr = date.toISOString().split("T")[0];
+    
+    const dayTasks = (tasks || []).filter((t: any) => t.due_date === dateStr);
+    const totalTime = dayTasks.reduce((sum: number, t: any) => sum + (t.estimated_time || 0), 0);
+    
+    days.push({
+      date: dateStr,
+      day_name: dayNames[date.getDay()],
+      is_today: dateStr === todayStr,
+      tasks: dayTasks.map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        priority: t.priority,
+        estimated_time: t.estimated_time,
+        status: t.status,
+      })),
+      total_estimated_minutes: totalTime,
+    });
+  }
+  
+  const weekTotalMinutes = days.reduce((sum, d) => sum + d.total_estimated_minutes, 0);
+  
+  return {
+    success: true,
+    message: `Week schedule: ${startStr} to ${endStr}`,
+    data: {
+      week: `${startStr} to ${endStr}`,
+      week_offset,
+      days,
+      week_total_minutes: weekTotalMinutes,
+    },
+  };
+}
+
+// Search course by name
+async function handleSearchCourse(supabase: any, userId: string, args: any) {
+  const { name } = args;
+  
+  if (!name) {
+    return { success: false, message: "Course name is required to search" };
+  }
+  
+  const { data: courses, error } = await supabase
+    .from("courses")
+    .select("id, title, status, platform")
+    .eq("user_id", userId)
+    .ilike("title", `%${name}%`)
+    .limit(5);
+    
+  if (error) throw error;
+  
+  if (!courses || courses.length === 0) {
+    return { 
+      success: false, 
+      message: `No course found matching "${name}". Use manage_courses with action: list to see available courses.` 
+    };
+  }
+  
+  if (courses.length === 1) {
+    return { 
+      success: true, 
+      message: `Found course: "${courses[0].title}" with ID: ${courses[0].id}`,
+      data: courses[0]
+    };
+  }
+  
+  return { 
+    success: true, 
+    message: `Found ${courses.length} courses matching "${name}"`,
+    data: courses
+  };
+}
+
+// Manage focus sessions
+async function handleFocusSessions(supabase: any, userId: string, args: any) {
+  const { action, task_id, session_type = "focus" } = args;
+  
+  switch (action) {
+    case "start":
+      // Check for active session
+      const { data: activeSession } = await supabase
+        .from("focus_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .is("end_time", null)
+        .single();
+      
+      if (activeSession) {
+        return { success: false, message: "You already have an active focus session. Stop it first." };
+      }
+      
+      const { data: newSession, error: startError } = await supabase
+        .from("focus_sessions")
+        .insert({
+          user_id: userId,
+          task_id: task_id || null,
+          session_type,
+          start_time: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      
+      if (startError) throw startError;
+      return { 
+        success: true, 
+        message: `Started ${session_type} session. Focus time! 🎯`,
+        data: newSession
+      };
+    
+    case "stop":
+      const { data: currentSession, error: findError } = await supabase
+        .from("focus_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .is("end_time", null)
+        .single();
+      
+      if (findError || !currentSession) {
+        return { success: false, message: "No active focus session to stop." };
+      }
+      
+      const endTime = new Date();
+      const startTime = new Date(currentSession.start_time);
+      const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+      
+      const { data: stoppedSession, error: stopError } = await supabase
+        .from("focus_sessions")
+        .update({
+          end_time: endTime.toISOString(),
+          duration: durationSeconds,
+          completed: true,
+        })
+        .eq("id", currentSession.id)
+        .select()
+        .single();
+      
+      if (stopError) throw stopError;
+      
+      const minutes = Math.floor(durationSeconds / 60);
+      return { 
+        success: true, 
+        message: `Stopped focus session. Duration: ${minutes} minutes. Great work! 🎉`,
+        data: stoppedSession
+      };
+    
+    case "list":
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const { data: sessions, error: listError } = await supabase
+        .from("focus_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("start_time", todayStart.toISOString())
+        .order("start_time", { ascending: false });
+      
+      if (listError) throw listError;
+      return { 
+        success: true, 
+        message: `Found ${sessions?.length || 0} sessions today`,
+        data: sessions
+      };
+    
+    case "stats":
+      const statsStart = new Date();
+      statsStart.setHours(0, 0, 0, 0);
+      
+      const { data: todaySessions } = await supabase
+        .from("focus_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("start_time", statsStart.toISOString())
+        .eq("completed", true);
+      
+      const totalSessions = todaySessions?.length || 0;
+      const totalMinutes = (todaySessions || []).reduce((sum: number, s: any) => sum + Math.floor((s.duration || 0) / 60), 0);
+      
+      return {
+        success: true,
+        message: `Today: ${totalSessions} sessions, ${totalMinutes} minutes of focus time`,
+        data: {
+          sessions_count: totalSessions,
+          total_minutes: totalMinutes,
+          total_hours: Math.round(totalMinutes / 60 * 10) / 10,
+        },
+      };
+    
+    default:
+      return { success: false, message: `Unknown action: ${action}` };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1200,10 +1482,12 @@ CRITICAL RULES:
    - "أضف كورس" or "add course" → manage_courses ONLY
    - "أضف مشروع" or "add project" → manage_projects ONLY
    
-2. MULTI-STEP OPERATIONS: When creating a course with lessons:
+2. MULTI-STEP OPERATIONS - EXECUTE IMMEDIATELY:
+   When creating a course with lessons:
    - First create the course using manage_courses
    - The response will contain the course UUID (like "abc123-...")
-   - Then use that EXACT UUID as course_id when calling manage_lessons for each lesson
+   - Then IMMEDIATELY call manage_lessons for EACH lesson using that EXACT UUID
+   - DO NOT tell the user to wait - execute ALL operations in ONE turn
    - DO NOT invent fake IDs - always use real UUIDs from previous responses
    
 3. TASKS ON PROJECTS: When user wants to add a task to a specific project:
@@ -1211,13 +1495,16 @@ CRITICAL RULES:
    - Use the returned project UUID as project_id in manage_tasks
    - If project not found, inform the user
 
-4. ONLY do what the user asks. Do not assume extra actions.
+4. ESTIMATED TIME: When creating tasks, you can include estimated_time in minutes (e.g., 30 for 30 minutes).
+
+5. ONLY do what the user asks. Do not assume extra actions.
 
 Available tools:
-- manage_tasks: Create/update/delete/list/complete tasks
+- manage_tasks: Create/update/delete/list/complete tasks (with estimated_time support)
 - search_project: Find a project by name to get its UUID
 - manage_projects: Create/update/delete/list work projects
 - manage_courses: Create/update/delete/list learning courses
+- search_course: Find a course by name to get its UUID
 - manage_lessons: Create/update/delete/list/complete lessons (requires course_id)
 - manage_notes: Create/update/delete/list notes
 - manage_habits: Create/update/delete/list/toggle habits
@@ -1226,6 +1513,8 @@ Available tools:
 - manage_books_podcasts: Manage reading list
 - manage_clients: Manage clients
 - get_summary: Get summaries for tasks/projects/habits/transactions
+- get_week_schedule: View full week schedule with tasks per day
+- manage_focus_sessions: Start/stop/list/stats for focus sessions
 
 Today's date: ${new Date().toISOString().split("T")[0]}
 Answer in the same language as the user's message (Arabic or English).`;
