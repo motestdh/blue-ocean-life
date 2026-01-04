@@ -94,6 +94,31 @@ export function useFocusSessions() {
       return { error: error.message };
     }
 
+    // Add focus time to task.actual_time (stored in hours)
+    if (activeSession.task_id && activeSession.session_type === 'focus' && durationSeconds > 0) {
+      const { data: taskRow, error: taskReadError } = await supabase
+        .from('tasks')
+        .select('actual_time')
+        .eq('id', activeSession.task_id)
+        .maybeSingle();
+
+      if (!taskReadError) {
+        const currentHours = Number(taskRow?.actual_time) || 0;
+        const hoursToAdd = durationSeconds / 3600;
+
+        const { error: taskUpdateError } = await supabase
+          .from('tasks')
+          .update({ actual_time: currentHours + hoursToAdd })
+          .eq('id', activeSession.task_id);
+
+        if (taskUpdateError) {
+          console.error('Error updating task time:', taskUpdateError);
+        }
+      } else {
+        console.error('Error reading task time:', taskReadError);
+      }
+    }
+
     setActiveSession(null);
     setSessions(prev => prev.map(s => s.id === data.id ? data : s));
     return { data };

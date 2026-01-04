@@ -128,8 +128,8 @@ function SortableTaskItem({
         ref={setNodeRef}
         style={{ ...style, marginLeft: `${level * 24}px` }}
         className={cn(
-          'flex items-center gap-3 p-4 bg-card rounded-lg border border-border group',
-          isDragging && 'opacity-50 shadow-xl z-50'
+          'group flex items-center gap-3 p-3 rounded-xl blitzit-card hover:border-primary/30 transition-all duration-200',
+          isDragging && 'opacity-50 shadow-lg'
         )}
       >
         {subtasks.length > 0 ? (
@@ -169,16 +169,16 @@ function SortableTaskItem({
         </div>
 
         {/* Time Tracker */}
-        {!isCompleted && (
-          <div className="flex items-center gap-1">
-            <div className={cn(
-              'flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md',
-              timer.isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-            )}>
-              <Clock className="w-3 h-3" />
-              <span>{formatTime(timer.seconds)}</span>
-            </div>
-            {timer.isRunning ? (
+        <div className="flex items-center gap-1">
+          <div className={cn(
+            'flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md',
+            timer.isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+          )}>
+            <Clock className="w-3 h-3" />
+            <span>{formatTime(timer.seconds)}</span>
+          </div>
+          {!isCompleted && (
+            timer.isRunning ? (
               <button
                 onClick={() => onTimerToggle(task.id)}
                 className="p-1 rounded hover:bg-muted transition-colors"
@@ -194,9 +194,9 @@ function SortableTaskItem({
               >
                 <Play className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
         
         <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
         
@@ -303,17 +303,31 @@ export default function ProjectDetail() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Initialize timer state from tasks
+  // Sync timer state with task.actual_time (keeps UI updated after focus sessions)
   useEffect(() => {
-    const initialState: { [key: string]: { isRunning: boolean; seconds: number } } = {};
-    tasks.forEach(task => {
-      if (!timerState[task.id]) {
-        initialState[task.id] = { isRunning: false, seconds: (task.actual_time || 0) * 3600 };
-      }
+    setTimerState(prev => {
+      let changed = false;
+      const next: { [key: string]: { isRunning: boolean; seconds: number } } = { ...prev };
+
+      tasks.forEach(task => {
+        const dbSeconds = (task.actual_time || 0) * 3600;
+        const existing = next[task.id];
+
+        if (!existing) {
+          next[task.id] = { isRunning: false, seconds: dbSeconds };
+          changed = true;
+          return;
+        }
+
+        // If not running, keep in sync with DB
+        if (!existing.isRunning && existing.seconds !== dbSeconds) {
+          next[task.id] = { ...existing, seconds: dbSeconds };
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
     });
-    if (Object.keys(initialState).length > 0) {
-      setTimerState(prev => ({ ...prev, ...initialState }));
-    }
   }, [tasks]);
 
   // Timer interval effect
@@ -357,6 +371,15 @@ export default function ProjectDetail() {
   const getSubtasks = (parentId: string) => displayTasks.filter(t => t.parent_task_id === parentId);
   const completedTasks = displayTasks.filter(t => t.status === 'completed').length;
   const progress = displayTasks.length > 0 ? Math.round((completedTasks / displayTasks.length) * 100) : 0;
+
+  // Persist progress so Projects list updates too
+  useEffect(() => {
+    if (!id || !project) return;
+    const current = project.progress || 0;
+    if (current !== progress) {
+      updateProject(id, { progress });
+    }
+  }, [id, project, progress, updateProject]);
 
   const handleUpdateProject = async () => {
     if (!id) return;
@@ -423,17 +446,7 @@ export default function ProjectDetail() {
   const handleToggleTask = async (taskId: string, completed: boolean) => {
     const newStatus = completed ? 'completed' : 'todo';
     await updateTask(taskId, { status: newStatus as 'completed' | 'in-progress' | 'todo' });
-    
-    // Update local tasks
-    const updatedTasks = localTasks.map(t => t.id === taskId ? { ...t, status: newStatus as 'completed' | 'in-progress' | 'todo' } : t);
-    setLocalTasks(updatedTasks);
-    
-    // Calculate and update project progress
-    const completedCount = updatedTasks.filter(t => t.status === 'completed').length;
-    const newProgress = updatedTasks.length > 0 ? Math.round((completedCount / updatedTasks.length) * 100) : 0;
-    if (id) {
-      await updateProject(id, { progress: newProgress });
-    }
+    setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as 'completed' | 'in-progress' | 'todo' } : t));
   };
 
   const handleDeleteTask = async (taskId: string) => {

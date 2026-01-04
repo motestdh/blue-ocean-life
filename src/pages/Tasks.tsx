@@ -186,16 +186,17 @@ function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, time
           )}
 
           {/* Time Tracker */}
-          {task.status !== 'completed' && (
-            <div className="flex items-center gap-1">
-              <div className={cn(
-                'flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md',
-                timer.isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-              )}>
-                <Clock className="w-3 h-3" />
-                <span>{formatTime(timer.seconds)}</span>
-              </div>
-              {timer.isRunning ? (
+          <div className="flex items-center gap-1">
+            <div className={cn(
+              'flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md',
+              timer.isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+            )}>
+              <Clock className="w-3 h-3" />
+              <span>{formatTime(timer.seconds)}</span>
+            </div>
+
+            {task.status !== 'completed' && (
+              timer.isRunning ? (
                 <button
                   onClick={() => onTimerToggle(task.id)}
                   className="p-1 rounded hover:bg-muted transition-colors"
@@ -211,9 +212,9 @@ function SortableTaskItem({ task, onToggle, onEdit, onDelete, onTimeUpdate, time
                 >
                   <Play className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
 
           <div className={cn('w-2 h-2 rounded-full', priorityDotColors[task.priority])} />
           
@@ -288,17 +289,31 @@ export default function Tasks() {
     })
   );
 
-  // Initialize timer state from tasks
+  // Sync timer state with task.actual_time (keeps UI updated after focus sessions)
   useEffect(() => {
-    const initialState: { [key: string]: { isRunning: boolean; seconds: number } } = {};
-    tasks.forEach(task => {
-      if (!timerState[task.id]) {
-        initialState[task.id] = { isRunning: false, seconds: (task.actual_time || 0) * 3600 };
-      }
+    setTimerState(prev => {
+      let changed = false;
+      const next: { [key: string]: { isRunning: boolean; seconds: number } } = { ...prev };
+
+      tasks.forEach(task => {
+        const dbSeconds = (task.actual_time || 0) * 3600;
+        const existing = next[task.id];
+
+        if (!existing) {
+          next[task.id] = { isRunning: false, seconds: dbSeconds };
+          changed = true;
+          return;
+        }
+
+        // If not running, keep in sync with DB
+        if (!existing.isRunning && existing.seconds !== dbSeconds) {
+          next[task.id] = { ...existing, seconds: dbSeconds };
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
     });
-    if (Object.keys(initialState).length > 0) {
-      setTimerState(prev => ({ ...prev, ...initialState }));
-    }
   }, [tasks]);
 
   // Timer interval effect
@@ -321,9 +336,9 @@ export default function Tasks() {
   }, []);
 
   // Sync local tasks with fetched tasks
-  if (tasks.length > 0 && localTasks.length === 0) {
+  useEffect(() => {
     setLocalTasks(tasks);
-  }
+  }, [tasks]);
 
   const displayTasks = localTasks.length > 0 ? localTasks : tasks;
 
@@ -663,31 +678,39 @@ export default function Tasks() {
           </TabsList>
 
           <TabsContent value="today" className="mt-6">
-            <TaskSection 
-              sectionTasks={todayTasks} 
-              emptyMessage={rtlEnabled ? 'لا توجد مهام لليوم' : 'No tasks for today. Add one to get started!'} 
-            />
+            <div>
+              <TaskSection 
+                sectionTasks={todayTasks} 
+                emptyMessage={rtlEnabled ? 'لا توجد مهام لليوم' : 'No tasks for today. Add one to get started!'} 
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="upcoming" className="mt-6">
-            <TaskSection 
-              sectionTasks={upcomingTasks} 
-              emptyMessage={rtlEnabled ? 'لا توجد مهام قادمة' : 'No upcoming tasks scheduled.'} 
-            />
+            <div>
+              <TaskSection 
+                sectionTasks={upcomingTasks} 
+                emptyMessage={rtlEnabled ? 'لا توجد مهام قادمة' : 'No upcoming tasks scheduled.'} 
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="all" className="mt-6">
-            <TaskSection 
-              sectionTasks={allActiveTasks} 
-              emptyMessage={rtlEnabled ? 'لا توجد مهام' : 'No tasks yet. Create your first task!'} 
-            />
+            <div>
+              <TaskSection 
+                sectionTasks={allActiveTasks} 
+                emptyMessage={rtlEnabled ? 'لا توجد مهام' : 'No tasks yet. Create your first task!'} 
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="completed" className="mt-6">
-            <TaskSection 
-              sectionTasks={completedTasks} 
-              emptyMessage={rtlEnabled ? 'لا توجد مهام مكتملة' : 'No completed tasks yet.'} 
-            />
+            <div>
+              <TaskSection 
+                sectionTasks={completedTasks} 
+                emptyMessage={rtlEnabled ? 'لا توجد مهام مكتملة' : 'No completed tasks yet.'} 
+              />
+            </div>
           </TabsContent>
         </Tabs>
       )}
