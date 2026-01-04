@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2, Edit2, Trash2, BarChart3, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useCurrencyRates } from '@/hooks/useCurrencyRates';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
@@ -47,13 +48,27 @@ import type { Database } from '@/integrations/supabase/types';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
+const CURRENCIES = ['USD', 'EUR', 'DZD'] as const;
+type Currency = typeof CURRENCIES[number];
+
 interface TransactionItemProps {
   transaction: Transaction;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
 }
 
-function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps) {
+interface TransactionItemProps {
+  transaction: Transaction;
+  onEdit: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
+  convertToDZD: (amount: number, currency: string) => number;
+  formatDZD: (amount: number) => string;
+}
+
+function TransactionItem({ transaction, onEdit, onDelete, convertToDZD, formatDZD }: TransactionItemProps) {
+  const amountInDZD = convertToDZD(Number(transaction.amount), transaction.currency || 'USD');
+  const originalCurrency = transaction.currency || 'USD';
+  
   return (
     <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200 group">
       <div className={cn(
@@ -75,8 +90,13 @@ function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps
           'font-semibold',
           transaction.type === 'income' ? 'text-emerald-500' : 'text-destructive'
         )}>
-          {transaction.type === 'income' ? '+' : '-'}${Number(transaction.amount).toLocaleString()}
+          {transaction.type === 'income' ? '+' : '-'}{formatDZD(amountInDZD)}
         </p>
+        {originalCurrency !== 'DZD' && (
+          <p className="text-xs text-muted-foreground">
+            {Number(transaction.amount).toLocaleString()} {originalCurrency}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           {format(new Date(transaction.date), 'MMM d, yyyy')}
         </p>
@@ -104,7 +124,8 @@ function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps
 }
 
 export default function Finance() {
-  const { transactions, loading, income, expenses, balance, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
+  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
+  const { convertToDZD, formatDZD, rates, loading: ratesLoading } = useCurrencyRates();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
@@ -114,16 +135,29 @@ export default function Finance() {
     category: string;
     description: string;
     date: string;
+    currency: Currency;
   }>({
     type: 'income',
     amount: '',
     category: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
+    currency: 'EUR',
   });
 
   const incomeTransactions = transactions.filter(t => t.type === 'income');
   const expenseTransactions = transactions.filter(t => t.type === 'expense');
+
+  // Calculate totals in DZD
+  const totalIncomeDZD = incomeTransactions.reduce(
+    (sum, t) => sum + convertToDZD(Number(t.amount), t.currency || 'USD'),
+    0
+  );
+  const totalExpensesDZD = expenseTransactions.reduce(
+    (sum, t) => sum + convertToDZD(Number(t.amount), t.currency || 'USD'),
+    0
+  );
+  const balanceDZD = totalIncomeDZD - totalExpensesDZD;
 
   const handleCreateTransaction = async () => {
     if (!newTransaction.amount || !newTransaction.category) {
@@ -137,6 +171,7 @@ export default function Finance() {
       category: newTransaction.category,
       description: newTransaction.description,
       date: newTransaction.date,
+      currency: newTransaction.currency,
     });
 
     if (result.error) {
@@ -150,6 +185,7 @@ export default function Finance() {
         category: '',
         description: '',
         date: new Date().toISOString().split('T')[0],
+        currency: 'EUR',
       });
     }
   };
@@ -193,9 +229,10 @@ export default function Finance() {
       { header: 'Category', key: 'category' },
       { header: 'Description', key: 'description' },
       { header: 'Amount', key: 'amount' },
+      { header: 'Currency', key: 'currency' },
     ], {
       title: 'Financial Report',
-      subtitle: `Total Income: $${income.toLocaleString()} | Total Expenses: $${expenses.toLocaleString()}`,
+      subtitle: `Total Income: ${formatDZD(totalIncomeDZD)} | Total Expenses: ${formatDZD(totalExpensesDZD)}`,
       filename: 'finance-report',
     });
     toast({ title: 'Success', description: 'Report exported to PDF' });
@@ -257,15 +294,35 @@ export default function Finance() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="amount">Amount</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  value={newTransaction.amount}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                  placeholder="0.00"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    value={newTransaction.amount}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Currency</Label>
+                  <Select
+                    value={newTransaction.currency}
+                    onValueChange={(value) => 
+                      setNewTransaction({ ...newTransaction, currency: value as Currency })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
@@ -313,7 +370,7 @@ export default function Finance() {
             <span className="text-sm text-muted-foreground">Income</span>
           </div>
           <p className="text-3xl font-bold text-emerald-500">
-            +${income.toLocaleString()}
+            +{formatDZD(totalIncomeDZD)}
           </p>
         </div>
 
@@ -325,7 +382,7 @@ export default function Finance() {
             <span className="text-sm text-muted-foreground">Expenses</span>
           </div>
           <p className="text-3xl font-bold text-destructive">
-            -${expenses.toLocaleString()}
+            -{formatDZD(totalExpensesDZD)}
           </p>
         </div>
 
@@ -338,15 +395,15 @@ export default function Finance() {
           </div>
           <p className={cn(
             'text-3xl font-bold',
-            balance >= 0 ? 'text-foreground' : 'text-destructive'
+            balanceDZD >= 0 ? 'text-foreground' : 'text-destructive'
           )}>
-            ${balance.toLocaleString()}
+            {formatDZD(balanceDZD)}
           </p>
         </div>
       </div>
 
       {/* Charts */}
-      <FinanceCharts transactions={transactions} income={income} expenses={expenses} />
+      <FinanceCharts transactions={transactions} income={totalIncomeDZD} expenses={totalExpensesDZD} />
 
       {/* Transactions */}
       <Tabs defaultValue="all" className="space-y-6">
@@ -369,6 +426,8 @@ export default function Finance() {
               transaction={transaction}
               onEdit={setEditingTransaction}
               onDelete={setDeletingTransaction}
+              convertToDZD={convertToDZD}
+              formatDZD={formatDZD}
             />
           ))}
         </TabsContent>
@@ -380,6 +439,8 @@ export default function Finance() {
               transaction={transaction}
               onEdit={setEditingTransaction}
               onDelete={setDeletingTransaction}
+              convertToDZD={convertToDZD}
+              formatDZD={formatDZD}
             />
           ))}
         </TabsContent>
@@ -391,6 +452,8 @@ export default function Finance() {
               transaction={transaction}
               onEdit={setEditingTransaction}
               onDelete={setDeletingTransaction}
+              convertToDZD={convertToDZD}
+              formatDZD={formatDZD}
             />
           ))}
         </TabsContent>

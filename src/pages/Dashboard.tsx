@@ -487,11 +487,7 @@ export default function Dashboard() {
           />
 
           {/* Finance Summary - NEW */}
-          <FinanceSummaryCard
-            income={income}
-            expenses={expenses}
-            balance={balance}
-          />
+          <FinanceSummaryCard />
         </div>
       </div>
 

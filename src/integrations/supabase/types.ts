@@ -592,6 +592,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_currency_rates: {
+        Row: {
+          created_at: string
+          eur_to_dzd: number
+          id: string
+          updated_at: string
+          usd_to_eur: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          eur_to_dzd?: number
+          id?: string
+          updated_at?: string
+          usd_to_eur?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          eur_to_dzd?: number
+          id?: string
+          updated_at?: string
+          usd_to_eur?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_nav_order: {
         Row: {
           created_at: string
