@@ -23,26 +23,39 @@ import {
 } from '@/components/ui/select';
 
 const themeColors = [
-  { name: 'green', label: 'Green', hsl: '160 84% 39%' },
   { name: 'blue', label: 'Blue', hsl: '199 89% 48%' },
+  { name: 'green', label: 'Green', hsl: '160 84% 39%' },
   { name: 'purple', label: 'Purple', hsl: '262 83% 58%' },
   { name: 'orange', label: 'Orange', hsl: '24 95% 53%' },
   { name: 'pink', label: 'Pink', hsl: '330 81% 60%' },
   { name: 'cyan', label: 'Cyan', hsl: '180 70% 45%' },
+  { name: 'red', label: 'Red', hsl: '0 84% 60%' },
+  { name: 'teal', label: 'Teal', hsl: '168 76% 42%' },
+  { name: 'gold', label: 'Gold', hsl: '45 93% 47%' },
+  { name: 'indigo', label: 'Indigo', hsl: '239 84% 67%' },
+  { name: 'rose', label: 'Rose', hsl: '350 89% 60%' },
+  { name: 'emerald', label: 'Emerald', hsl: '152 69% 45%' },
 ] as const;
 
 const backgroundStyles = [
-  { name: 'default', label: 'Default', class: '' },
-  { name: 'gradient', label: 'Gradient Mesh', class: 'blitzit-gradient' },
-  { name: 'subtle', label: 'Subtle Gradient', class: 'blitzit-gradient-subtle' },
-  { name: 'solid', label: 'Solid Color', class: 'bg-background' },
+  { name: 'default', label: 'Default', class: '', preview: 'bg-background' },
+  { name: 'gradient', label: 'Gradient Mesh', class: 'blitzit-gradient', preview: 'bg-gradient-to-br from-primary/20 via-accent/10 to-background' },
+  { name: 'subtle', label: 'Subtle Gradient', class: 'blitzit-gradient-subtle', preview: 'bg-gradient-to-b from-muted/50 to-background' },
+  { name: 'solid', label: 'Solid Color', class: 'bg-background', preview: 'bg-card' },
+  { name: 'mesh', label: 'Mesh Gradient', class: 'blitzit-gradient', preview: 'bg-gradient-to-tr from-primary/30 via-purple-500/20 to-cyan-500/20' },
+  { name: 'aurora', label: 'Aurora', class: 'blitzit-gradient-subtle', preview: 'bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-purple-500/20' },
+  { name: 'minimal', label: 'Minimal', class: 'bg-background', preview: 'bg-muted/30' },
 ] as const;
 
 const fontOptions = [
   { name: 'system', label: 'System Default', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   { name: 'inter', label: 'Inter', family: '"Inter", sans-serif' },
-  { name: 'geist', label: 'Geist', family: '"Geist", sans-serif' },
-  { name: 'mono', label: 'Monospace', family: '"SF Mono", "Monaco", "Inconsolata", monospace' },
+  { name: 'poppins', label: 'Poppins', family: '"Poppins", sans-serif' },
+  { name: 'space', label: 'Space Grotesk', family: '"Space Grotesk", sans-serif' },
+  { name: 'jakarta', label: 'Plus Jakarta Sans', family: '"Plus Jakarta Sans", sans-serif' },
+  { name: 'dm', label: 'DM Sans', family: '"DM Sans", sans-serif' },
+  { name: 'outfit', label: 'Outfit', family: '"Outfit", sans-serif' },
+  { name: 'mono', label: 'JetBrains Mono', family: '"JetBrains Mono", monospace' },
 ] as const;
 
 const timezones = [
@@ -415,7 +428,7 @@ export default function Settings() {
   useEffect(() => {
     const root = document.documentElement;
     // Theme colors
-    ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
+    ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'].forEach(c => {
       root.classList.remove(`theme-${c}`);
     });
     root.classList.add(`theme-${themeColor}`);
@@ -524,13 +537,13 @@ export default function Settings() {
 
         <div>
           <Label className="text-foreground mb-4 block">{t.themeColor}</Label>
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
             {themeColors.map((color) => (
               <button
                 key={color.name}
                 onClick={() => setThemeColor(color.name)}
                 className={cn(
-                  "relative w-12 h-12 rounded-xl transition-all hover:scale-105",
+                  "relative w-full aspect-square rounded-xl transition-all hover:scale-105",
                   "ring-2 ring-offset-2 ring-offset-background",
                   themeColor === color.name ? "ring-foreground" : "ring-transparent hover:ring-muted-foreground/30"
                 )}
@@ -547,29 +560,40 @@ export default function Settings() {
 
         <Separator />
 
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Label className="text-foreground">{t.backgroundStyle}</Label>
-            <p className="text-sm text-muted-foreground">
-              {language === 'ar' ? 'اختر نمط الخلفية' : 'Choose your background style'}
-            </p>
+        <div>
+          <Label className="text-foreground mb-4 block">{t.backgroundStyle}</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {backgroundStyles.map((bg) => (
+              <button
+                key={bg.name}
+                onClick={() => setBackgroundStyle(bg.name)}
+                className={cn(
+                  "relative p-3 rounded-xl transition-all hover:scale-[1.02]",
+                  "ring-2 ring-offset-2 ring-offset-background",
+                  "min-h-[80px] flex flex-col items-center justify-center gap-2",
+                  bg.preview,
+                  backgroundStyle === bg.name 
+                    ? "ring-primary" 
+                    : "ring-transparent hover:ring-muted-foreground/30 border border-border"
+                )}
+              >
+                <div className={cn(
+                  "w-full h-8 rounded-lg",
+                  bg.preview
+                )} />
+                <span className="text-xs font-medium text-foreground">{bg.label}</span>
+                {backgroundStyle === bg.name && (
+                  <Check className="w-4 h-4 text-primary absolute top-2 right-2" />
+                )}
+              </button>
+            ))}
           </div>
-          <Select value={backgroundStyle} onValueChange={(v: any) => setBackgroundStyle(v)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {backgroundStyles.map((bg) => (
-                <SelectItem key={bg.name} value={bg.name}>{bg.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <Separator />
 
-        <div className="flex items-center justify-between">
-          <div className="space-y-1 flex items-center gap-3">
+        <div>
+          <div className="flex items-center gap-3 mb-4">
             <Type className="w-5 h-5 text-muted-foreground" />
             <div>
               <Label className="text-foreground">{t.fontFamily}</Label>
@@ -578,18 +602,37 @@ export default function Settings() {
               </p>
             </div>
           </div>
-          <Select value={fontFamily} onValueChange={(v: any) => setFontFamily(v)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fontOptions.map((font) => (
-                <SelectItem key={font.name} value={font.name} style={{ fontFamily: font.family }}>
-                  {font.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {fontOptions.map((font) => (
+              <button
+                key={font.name}
+                onClick={() => setFontFamily(font.name)}
+                className={cn(
+                  "p-3 rounded-xl transition-all text-center",
+                  "ring-2 ring-offset-2 ring-offset-background",
+                  fontFamily === font.name 
+                    ? "ring-primary bg-primary/10" 
+                    : "ring-transparent hover:ring-muted-foreground/30 bg-muted/50 hover:bg-muted"
+                )}
+                style={{ fontFamily: font.family }}
+              >
+                <span className="text-lg font-medium text-foreground">Aa</span>
+                <p className="text-xs text-muted-foreground mt-1">{font.label}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+          <div className="text-sm text-muted-foreground">
+            {language === 'ar' ? 'يتم حفظ الإعدادات تلقائياً' : 'Settings are saved automatically'}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <Check className="w-4 h-4" />
+            {language === 'ar' ? 'محفوظ' : 'Saved'}
+          </div>
         </div>
       </div>
 

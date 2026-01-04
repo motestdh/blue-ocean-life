@@ -161,6 +161,54 @@
     --sidebar-primary: 180 70% 45%;
     --sidebar-ring: 180 70% 45%;
   }
+  
+  .theme-red {
+    --primary: 0 84% 60%;
+    --accent: 0 84% 60%;
+    --ring: 0 84% 60%;
+    --sidebar-primary: 0 84% 60%;
+    --sidebar-ring: 0 84% 60%;
+  }
+  
+  .theme-teal {
+    --primary: 168 76% 42%;
+    --accent: 168 76% 42%;
+    --ring: 168 76% 42%;
+    --sidebar-primary: 168 76% 42%;
+    --sidebar-ring: 168 76% 42%;
+  }
+  
+  .theme-gold {
+    --primary: 45 93% 47%;
+    --accent: 45 93% 47%;
+    --ring: 45 93% 47%;
+    --sidebar-primary: 45 93% 47%;
+    --sidebar-ring: 45 93% 47%;
+  }
+  
+  .theme-indigo {
+    --primary: 239 84% 67%;
+    --accent: 239 84% 67%;
+    --ring: 239 84% 67%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-ring: 239 84% 67%;
+  }
+  
+  .theme-rose {
+    --primary: 350 89% 60%;
+    --accent: 350 89% 60%;
+    --ring: 350 89% 60%;
+    --sidebar-primary: 350 89% 60%;
+    --sidebar-ring: 350 89% 60%;
+  }
+  
+  .theme-emerald {
+    --primary: 152 69% 45%;
+    --accent: 152 69% 45%;
+    --ring: 152 69% 45%;
+    --sidebar-primary: 152 69% 45%;
+    --sidebar-ring: 152 69% 45%;
+  }
 }
 
 @layer base {

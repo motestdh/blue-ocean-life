@@ -25,7 +25,7 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     // Apply theme color
-    ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
+    ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'].forEach(c => {
       document.documentElement.classList.remove(`theme-${c}`);
     });
     document.documentElement.classList.add(`theme-${themeColor}`);
