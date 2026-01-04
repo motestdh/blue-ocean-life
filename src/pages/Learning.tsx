@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, BookOpen, Play, CheckCircle2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, BookOpen, Play, CheckCircle2, Trash2, Loader2, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +37,7 @@ const statusColors: Record<string, string> = {
 export default function Learning() {
   const { courses, loading, addCourse, updateCourse, deleteCourse } = useCourses();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [lessonInputs, setLessonInputs] = useState<Record<string, string>>({});
   const [newCourse, setNewCourse] = useState({
     title: '',
     platform: '',
@@ -78,14 +84,30 @@ export default function Learning() {
     }
   };
 
-  const handleIncrementLesson = async (course: typeof courses[0]) => {
-    const newCompleted = Math.min((course.completed_lessons || 0) + 1, course.total_lessons || 0);
-    const newStatus = newCompleted === course.total_lessons ? 'completed' : 'in-progress';
+  const handleIncrementLesson = async (course: typeof courses[0], amount: number = 1) => {
+    const newCompleted = Math.min(
+      Math.max((course.completed_lessons || 0) + amount, 0),
+      course.total_lessons || 0
+    );
+    const newStatus = newCompleted === course.total_lessons ? 'completed' : 
+                      newCompleted === 0 ? 'not-started' : 'in-progress';
     
     await updateCourse(course.id, { 
       completed_lessons: newCompleted,
       status: newStatus
     });
+    
+    // Clear the input after adding
+    if (amount > 1) {
+      setLessonInputs(prev => ({ ...prev, [course.id]: '' }));
+    }
+  };
+
+  const handleAddCustomLessons = (course: typeof courses[0]) => {
+    const amount = parseInt(lessonInputs[course.id] || '0');
+    if (amount > 0) {
+      handleIncrementLesson(course, amount);
+    }
   };
 
   if (loading) {
@@ -276,14 +298,64 @@ export default function Learning() {
                       {course.completed_lessons || 0}/{course.total_lessons || 0} lessons
                     </span>
                     {course.status !== 'completed' && (course.total_lessons || 0) > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => handleIncrementLesson(course)}
-                      >
-                        +1 Lesson
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleIncrementLesson(course, -1)}
+                          disabled={(course.completed_lessons || 0) === 0}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => handleIncrementLesson(course, 1)}
+                        >
+                          +1
+                        </Button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                            >
+                              +Custom
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-3" align="end">
+                            <div className="space-y-2">
+                              <Label className="text-xs">Add lessons</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  placeholder="5"
+                                  className="h-8"
+                                  value={lessonInputs[course.id] || ''}
+                                  onChange={(e) => setLessonInputs(prev => ({
+                                    ...prev,
+                                    [course.id]: e.target.value
+                                  }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAddCustomLessons(course);
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-8"
+                                  onClick={() => handleAddCustomLessons(course)}
+                                >
+                                  Add
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     )}
                   </div>
                 </div>
