@@ -1,10 +1,10 @@
 project_id = "bbelqzmnqvxjjmnewazu"
 
 [functions.ai-chat]
-verify_jwt = true
+verify_jwt = false
 
 [functions.gemini-chat]
-verify_jwt = true
+verify_jwt = false
 
 [functions.telegram-bot]
 verify_jwt = false
