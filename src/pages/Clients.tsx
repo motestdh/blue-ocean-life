@@ -222,7 +222,7 @@ export default function Clients() {
         {filteredClients.map((client) => (
           <div
             key={client.id}
-            className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-200"
+            className="flex items-center gap-4 p-4 rounded-xl blitzit-card hover:border-primary/30 transition-all duration-200 hover-lift"
           >
             <Avatar className="h-12 w-12">
               <AvatarFallback className="bg-primary/10 text-primary font-semibold">

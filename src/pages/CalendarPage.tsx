@@ -114,7 +114,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Calendar */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="blitzit-card overflow-hidden">
         {/* Month Navigation */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <Button

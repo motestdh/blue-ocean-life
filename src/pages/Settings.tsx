@@ -139,7 +139,7 @@ export default function Settings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+      <div className="blitzit-card p-6 space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Palette className="w-5 h-5 text-primary" />
@@ -203,7 +203,7 @@ export default function Settings() {
       </div>
 
       {/* Notifications */}
-      <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+      <div className="blitzit-card p-6 space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Bell className="w-5 h-5 text-primary" />
@@ -254,7 +254,7 @@ export default function Settings() {
       </div>
 
       {/* Language */}
-      <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+      <div className="blitzit-card p-6 space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Globe className="w-5 h-5 text-primary" />
@@ -298,7 +298,7 @@ export default function Settings() {
       </div>
 
       {/* Account */}
-      <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+      <div className="blitzit-card p-6 space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <User className="w-5 h-5 text-primary" />

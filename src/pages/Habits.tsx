@@ -179,7 +179,7 @@ export default function Habits() {
       </div>
 
       {/* Today's Progress */}
-      <div className="bg-card rounded-xl border border-border p-6">
+      <div className="blitzit-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-primary/10">
@@ -197,7 +197,7 @@ export default function Habits() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="blitzit-card p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-amber-500/10">
               <Flame className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -209,7 +209,7 @@ export default function Habits() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="blitzit-card p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-emerald-500/10">
               <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -221,7 +221,7 @@ export default function Habits() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-5">
+        <div className="blitzit-card p-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-primary/10">
               <Check className="w-5 h-5 text-primary" />
@@ -244,8 +244,8 @@ export default function Habits() {
               <div 
                 key={habit.id}
                 className={cn(
-                  'flex items-center gap-4 p-4 rounded-xl border bg-card transition-all duration-200 group',
-                  isCompleted ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border hover:border-primary/30'
+                  'flex items-center gap-4 p-4 rounded-xl blitzit-card transition-all duration-200 group hover-lift',
+                  isCompleted ? 'border-emerald-500/50 bg-emerald-500/5' : 'hover:border-primary/30'
                 )}
               >
                 <button

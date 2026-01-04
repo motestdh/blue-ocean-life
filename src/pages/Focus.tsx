@@ -134,7 +134,7 @@ export default function Focus() {
       </div>
 
       {/* Timer */}
-      <div className="bg-card rounded-2xl border border-border p-8 text-center">
+      <div className="blitzit-card p-8 text-center">
         <div className="relative w-48 h-48 mx-auto mb-6">
           <svg className="w-full h-full -rotate-90">
             <circle
@@ -254,7 +254,7 @@ export default function Focus() {
       </div>
 
       {/* Task Queue */}
-      <div className="bg-card rounded-xl border border-border p-6">
+      <div className="blitzit-card p-6">
         <h2 className="text-lg font-semibold text-foreground mb-4">Task Queue</h2>
 
         <div className="space-y-2">
@@ -298,15 +298,15 @@ export default function Focus() {
 
       {/* Session Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="blitzit-card p-4 text-center">
           <p className="text-2xl font-bold text-foreground">{sessionsToday}</p>
           <p className="text-sm text-muted-foreground">Sessions Today</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="blitzit-card p-4 text-center">
           <p className="text-2xl font-bold text-foreground">{formatDuration(totalFocusTime)}</p>
           <p className="text-sm text-muted-foreground">Time Focused</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 text-center">
+        <div className="blitzit-card p-4 text-center">
           <p className="text-2xl font-bold text-foreground">{tasksCompleted}</p>
           <p className="text-sm text-muted-foreground">Tasks Completed</p>
         </div>

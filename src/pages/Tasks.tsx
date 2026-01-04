@@ -90,7 +90,7 @@ function SortableTaskItem({ task, onToggle, onTimeUpdate, timerState, onTimerTog
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 transition-all duration-200',
+        'group flex items-center gap-3 p-3 rounded-xl blitzit-card hover:border-primary/30 transition-all duration-200',
         task.status === 'completed' && 'opacity-60',
         isDragging && 'opacity-50 shadow-lg'
       )}

@@ -178,7 +178,7 @@ export default function Notes() {
           <div
             key={note.id}
             className={cn(
-              'p-5 rounded-xl border bg-card hover:border-primary/30 transition-all duration-200 group cursor-pointer',
+              'p-5 rounded-xl blitzit-card hover:border-primary/30 transition-all duration-200 group cursor-pointer hover-lift',
               note.is_pinned && 'border-primary/50'
             )}
             onClick={() => setEditingNote(note)}

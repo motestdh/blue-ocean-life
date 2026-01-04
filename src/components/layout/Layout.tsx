@@ -42,7 +42,7 @@ export function Layout({ children }: LayoutProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen blitzit-gradient flex items-center justify-center">
         <div className="animate-pulse text-primary">Loading...</div>
       </div>
     );
@@ -53,14 +53,14 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen blitzit-gradient">
       <Sidebar />
       <div
         className={cn(
           'min-h-screen transition-all duration-300',
           rtlEnabled 
-            ? (sidebarCollapsed ? 'mr-16' : 'mr-64')
-            : (sidebarCollapsed ? 'ml-16' : 'ml-64')
+            ? (sidebarCollapsed ? 'mr-16' : 'mr-60')
+            : (sidebarCollapsed ? 'ml-16' : 'ml-60')
         )}
       >
         <Header 
