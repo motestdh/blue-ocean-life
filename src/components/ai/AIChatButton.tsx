@@ -64,17 +64,17 @@ export function AIChatButton() {
         return;
       }
 
-      // If Gemini returns a known error, show a helpful message
+      // If AI returns a known error, show a helpful message
       if (geminiData?.error) {
         const errText = String(geminiData.error);
 
         // Missing/invalid key: guide user to Settings and stop
-        if (errText.toLowerCase().includes('api key') || errText.toLowerCase().includes('settings')) {
+        if (errText.toLowerCase().includes('api key') || errText.toLowerCase().includes('settings') || errText.toLowerCase().includes('openrouter')) {
           setMessages(prev => [...prev, {
             role: 'assistant',
             content: language === 'ar'
-              ? '⚙️ للتحكم بالذكاء الاصطناعي عبر Gemini، أضف/تحقق من مفتاح Gemini API في الإعدادات ← تكامل الذكاء الاصطناعي.'
-              : '⚙️ To use Gemini, add/check your Gemini API key in Settings → AI Integration.'
+              ? '⚙️ للتحكم بالذكاء الاصطناعي، أضف/تحقق من مفتاح OpenRouter API في الإعدادات ← تكامل الذكاء الاصطناعي.'
+              : '⚙️ To use AI, add/check your OpenRouter API key in Settings → AI Integration.'
           }]);
           return;
         }
@@ -82,8 +82,8 @@ export function AIChatButton() {
         // Quota/rate limit: inform user, then fall back to built-in AI
         if (errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('rate limit')) {
           toast.error(language === 'ar'
-            ? 'تم تجاوز حصة/الحد في Gemini. سنستخدم المساعد المدمج مؤقتًا.'
-            : 'Gemini quota/rate limit exceeded. Falling back to built-in AI.');
+            ? 'تم تجاوز حصة/الحد. سنستخدم المساعد المدمج مؤقتًا.'
+            : 'Rate limit exceeded. Falling back to built-in AI.');
         }
       }
 
