@@ -10,10 +10,12 @@ import {
   Calendar,
   Loader2,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Download
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { useTasks } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { useHabits } from '@/hooks/useHabits';
@@ -21,6 +23,8 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useFocusSessions } from '@/hooks/useFocusSessions';
 import { useAppStore } from '@/stores/useAppStore';
 import { cn } from '@/lib/utils';
+import { exportAnalyticsToPDF } from '@/lib/pdf-export';
+import { toast } from 'sonner';
 import { 
   BarChart, 
   Bar, 
@@ -164,17 +168,37 @@ export default function Analytics() {
     );
   }
 
+  const handleExportPDF = () => {
+    exportAnalyticsToPDF({
+      period: isRTL ? 'الأسبوع الحالي' : 'This Week',
+      tasksCompleted: taskStats.completed,
+      tasksTotal: taskStats.total,
+      focusHours: Math.round(totalFocusTime / 3600),
+      habitsCompleted: completions.length,
+      income,
+      expenses,
+      projectsActive: projectStats.inProgress,
+    }, 'analytics-report');
+    toast.success(isRTL ? 'تم تصدير التقرير' : 'Report exported');
+  };
+
   return (
     <div className={cn('space-y-6 animate-fade-in', isRTL && 'rtl')}>
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-          <BarChart3 className="w-8 h-8 text-primary" />
-          {isRTL ? 'التحليلات والتقارير' : 'Analytics & Reports'}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {isRTL ? 'نظرة عامة على أدائك' : 'Overview of your performance'}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <BarChart3 className="w-8 h-8 text-primary" />
+            {isRTL ? 'التحليلات والتقارير' : 'Analytics & Reports'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isRTL ? 'نظرة عامة على أدائك' : 'Overview of your performance'}
+          </p>
+        </div>
+        <Button onClick={handleExportPDF} className="gap-2">
+          <Download className="w-4 h-4" />
+          {isRTL ? 'تصدير PDF' : 'Export PDF'}
+        </Button>
       </div>
 
       {/* Summary Cards */}

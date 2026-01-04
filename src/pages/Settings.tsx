@@ -7,6 +7,8 @@ import { useAppStore } from '@/stores/useAppStore';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useNotifications } from '@/hooks/useNotifications';
+import { toast } from 'sonner';
 
 const themeColors = [
   { name: 'green', label: 'Green', hsl: '160 84% 39%' },
@@ -26,6 +28,8 @@ const translations = {
     darkModeDesc: 'Switch between light and dark themes',
     themeColor: 'Theme Color',
     notifications: 'Notifications',
+    enableNotifications: 'Enable Browser Notifications',
+    enableNotificationsDesc: 'Allow the app to send you notifications',
     taskReminders: 'Task Reminders',
     taskRemindersDesc: 'Get notified about upcoming tasks',
     habitCheckins: 'Habit Check-ins',
@@ -41,6 +45,7 @@ const translations = {
     rtlModeDesc: 'Enable right-to-left layout',
     account: 'Account',
     editProfile: 'Edit Profile',
+    testNotification: 'Test',
   },
   ar: {
     settings: 'الإعدادات',
@@ -50,6 +55,8 @@ const translations = {
     darkModeDesc: 'التبديل بين الوضع الفاتح والداكن',
     themeColor: 'لون السمة',
     notifications: 'الإشعارات',
+    enableNotifications: 'تفعيل إشعارات المتصفح',
+    enableNotificationsDesc: 'السماح للتطبيق بإرسال إشعارات لك',
     taskReminders: 'تذكيرات المهام',
     taskRemindersDesc: 'احصل على إشعارات حول المهام القادمة',
     habitCheckins: 'تسجيل العادات',
@@ -65,12 +72,19 @@ const translations = {
     rtlModeDesc: 'تمكين تخطيط من اليمين إلى اليسار',
     account: 'الحساب',
     editProfile: 'تعديل الملف الشخصي',
+    testNotification: 'تجربة',
   },
 };
 
 export default function Settings() {
-  const { theme, setTheme, themeColor, setThemeColor, language, setLanguage, rtlEnabled, setRtlEnabled } = useAppStore();
+  const { 
+    theme, setTheme, themeColor, setThemeColor, 
+    language, setLanguage, rtlEnabled, setRtlEnabled,
+    notificationsEnabled, setNotificationsEnabled,
+    notificationSettings, updateNotificationSetting
+  } = useAppStore();
   const { user } = useAuth();
+  const { isSupported, permission, requestPermission, showNotification } = useNotifications();
   const t = translations[language];
 
   // Apply theme color and RTL on mount
@@ -83,6 +97,31 @@ export default function Settings() {
     root.dir = rtlEnabled ? 'rtl' : 'ltr';
     root.lang = language;
   }, [themeColor, rtlEnabled, language]);
+
+  const handleEnableNotifications = async (enabled: boolean) => {
+    if (enabled) {
+      if (!isSupported) {
+        toast.error(language === 'ar' ? 'الإشعارات غير مدعومة في هذا المتصفح' : 'Notifications are not supported in this browser');
+        return;
+      }
+      const granted = await requestPermission();
+      if (granted) {
+        setNotificationsEnabled(true);
+        toast.success(language === 'ar' ? 'تم تفعيل الإشعارات' : 'Notifications enabled');
+      } else {
+        toast.error(language === 'ar' ? 'تم رفض إذن الإشعارات' : 'Notification permission denied');
+      }
+    } else {
+      setNotificationsEnabled(false);
+    }
+  };
+
+  const handleTestNotification = () => {
+    showNotification({
+      title: language === 'ar' ? 'إشعار تجريبي' : 'Test Notification',
+      body: language === 'ar' ? 'الإشعارات تعمل بشكل صحيح!' : 'Notifications are working correctly!',
+    });
+  };
 
   const initials = user?.user_metadata?.full_name
     ?.split(' ')
@@ -172,19 +211,43 @@ export default function Settings() {
           <h2 className="text-lg font-semibold text-foreground">{t.notifications}</h2>
         </div>
 
+        <div className="flex items-center justify-between py-2">
+          <div className="space-y-1">
+            <Label className="text-foreground">{t.enableNotifications}</Label>
+            <p className="text-sm text-muted-foreground">{t.enableNotificationsDesc}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {notificationsEnabled && permission === 'granted' && (
+              <Button variant="outline" size="sm" onClick={handleTestNotification}>
+                {t.testNotification}
+              </Button>
+            )}
+            <Switch 
+              checked={notificationsEnabled && permission === 'granted'} 
+              onCheckedChange={handleEnableNotifications}
+            />
+          </div>
+        </div>
+
+        <Separator />
+
         <div className="space-y-4">
           {[
-            { label: t.taskReminders, description: t.taskRemindersDesc },
-            { label: t.habitCheckins, description: t.habitCheckinsDesc },
-            { label: t.projectUpdates, description: t.projectUpdatesDesc },
-            { label: t.financialAlerts, description: t.financialAlertsDesc },
+            { key: 'taskReminders' as const, label: t.taskReminders, description: t.taskRemindersDesc },
+            { key: 'habitCheckins' as const, label: t.habitCheckins, description: t.habitCheckinsDesc },
+            { key: 'projectUpdates' as const, label: t.projectUpdates, description: t.projectUpdatesDesc },
+            { key: 'financialAlerts' as const, label: t.financialAlerts, description: t.financialAlertsDesc },
           ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-2">
+            <div key={item.key} className="flex items-center justify-between py-2">
               <div className="space-y-1">
                 <Label className="text-foreground">{item.label}</Label>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={notificationSettings[item.key]}
+                onCheckedChange={(checked) => updateNotificationSetting(item.key, checked)}
+                disabled={!notificationsEnabled}
+              />
             </div>
           ))}
         </div>
