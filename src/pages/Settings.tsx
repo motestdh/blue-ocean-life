@@ -1,14 +1,22 @@
-import { useEffect } from 'react';
-import { Moon, Sun, Globe, Bell, User, Palette, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/stores/useAppStore';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const themeColors = [
   { name: 'green', label: 'Green', hsl: '160 84% 39%' },
@@ -19,6 +27,20 @@ const themeColors = [
   { name: 'cyan', label: 'Cyan', hsl: '180 70% 45%' },
 ] as const;
 
+const backgroundStyles = [
+  { name: 'default', label: 'Default', class: '' },
+  { name: 'gradient', label: 'Gradient Mesh', class: 'blitzit-gradient' },
+  { name: 'subtle', label: 'Subtle Gradient', class: 'blitzit-gradient-subtle' },
+  { name: 'solid', label: 'Solid Color', class: 'bg-background' },
+] as const;
+
+const fontOptions = [
+  { name: 'system', label: 'System Default', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+  { name: 'inter', label: 'Inter', family: '"Inter", sans-serif' },
+  { name: 'geist', label: 'Geist', family: '"Geist", sans-serif' },
+  { name: 'mono', label: 'Monospace', family: '"SF Mono", "Monaco", "Inconsolata", monospace' },
+] as const;
+
 const translations = {
   en: {
     settings: 'Settings',
@@ -27,6 +49,8 @@ const translations = {
     darkMode: 'Dark Mode',
     darkModeDesc: 'Switch between light and dark themes',
     themeColor: 'Theme Color',
+    backgroundStyle: 'Background Style',
+    fontFamily: 'Font Family',
     notifications: 'Notifications',
     enableNotifications: 'Enable Browser Notifications',
     enableNotificationsDesc: 'Allow the app to send you notifications',
@@ -46,6 +70,11 @@ const translations = {
     account: 'Account',
     editProfile: 'Edit Profile',
     testNotification: 'Test',
+    aiIntegration: 'AI Integration',
+    aiIntegrationDesc: 'Configure AI features for your app',
+    aiEnabled: 'AI Features',
+    aiEnabledDesc: 'Enable AI-powered suggestions and chat',
+    aiNote: 'AI is powered by Lovable AI (no API key needed)',
   },
   ar: {
     settings: 'الإعدادات',
@@ -54,6 +83,8 @@ const translations = {
     darkMode: 'الوضع الداكن',
     darkModeDesc: 'التبديل بين الوضع الفاتح والداكن',
     themeColor: 'لون السمة',
+    backgroundStyle: 'نمط الخلفية',
+    fontFamily: 'نوع الخط',
     notifications: 'الإشعارات',
     enableNotifications: 'تفعيل إشعارات المتصفح',
     enableNotificationsDesc: 'السماح للتطبيق بإرسال إشعارات لك',
@@ -73,6 +104,11 @@ const translations = {
     account: 'الحساب',
     editProfile: 'تعديل الملف الشخصي',
     testNotification: 'تجربة',
+    aiIntegration: 'تكامل الذكاء الاصطناعي',
+    aiIntegrationDesc: 'تكوين ميزات الذكاء الاصطناعي',
+    aiEnabled: 'ميزات الذكاء الاصطناعي',
+    aiEnabledDesc: 'تفعيل الاقتراحات والدردشة بالذكاء الاصطناعي',
+    aiNote: 'الذكاء الاصطناعي مدعوم من Lovable AI (لا حاجة لمفتاح API)',
   },
 };
 
@@ -81,22 +117,44 @@ export default function Settings() {
     theme, setTheme, themeColor, setThemeColor, 
     language, setLanguage, rtlEnabled, setRtlEnabled,
     notificationsEnabled, setNotificationsEnabled,
-    notificationSettings, updateNotificationSetting
+    notificationSettings, updateNotificationSetting,
+    backgroundStyle, setBackgroundStyle,
+    fontFamily, setFontFamily,
+    aiEnabled, setAiEnabled,
   } = useAppStore();
   const { user } = useAuth();
   const { isSupported, permission, requestPermission, showNotification } = useNotifications();
   const t = translations[language];
 
-  // Apply theme color and RTL on mount
+  // Apply theme color, background, font, and RTL on mount
   useEffect(() => {
     const root = document.documentElement;
+    // Theme colors
     ['green', 'blue', 'purple', 'orange', 'pink', 'cyan'].forEach(c => {
       root.classList.remove(`theme-${c}`);
     });
     root.classList.add(`theme-${themeColor}`);
+    
+    // Background style - apply to main content area
+    const mainContent = document.querySelector('main');
+    if (mainContent) {
+      ['blitzit-gradient', 'blitzit-gradient-subtle', 'bg-background'].forEach(c => {
+        mainContent.classList.remove(c);
+      });
+      const bgClass = backgroundStyles.find(b => b.name === backgroundStyle)?.class;
+      if (bgClass) mainContent.classList.add(bgClass);
+    }
+    
+    // Font family
+    const font = fontOptions.find(f => f.name === fontFamily)?.family;
+    if (font) {
+      document.body.style.fontFamily = font;
+    }
+    
+    // RTL and language
     root.dir = rtlEnabled ? 'rtl' : 'ltr';
     root.lang = language;
-  }, [themeColor, rtlEnabled, language]);
+  }, [themeColor, rtlEnabled, language, backgroundStyle, fontFamily]);
 
   const handleEnableNotifications = async (enabled: boolean) => {
     if (enabled) {
@@ -199,6 +257,86 @@ export default function Settings() {
               </button>
             ))}
           </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label className="text-foreground">{t.backgroundStyle}</Label>
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar' ? 'اختر نمط الخلفية' : 'Choose your background style'}
+            </p>
+          </div>
+          <Select value={backgroundStyle} onValueChange={(v: any) => setBackgroundStyle(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {backgroundStyles.map((bg) => (
+                <SelectItem key={bg.name} value={bg.name}>{bg.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-1 flex items-center gap-3">
+            <Type className="w-5 h-5 text-muted-foreground" />
+            <div>
+              <Label className="text-foreground">{t.fontFamily}</Label>
+              <p className="text-sm text-muted-foreground">
+                {language === 'ar' ? 'اختر نوع الخط' : 'Choose your font'}
+              </p>
+            </div>
+          </div>
+          <Select value={fontFamily} onValueChange={(v: any) => setFontFamily(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {fontOptions.map((font) => (
+                <SelectItem key={font.name} value={font.name} style={{ fontFamily: font.family }}>
+                  {font.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* AI Integration */}
+      <div className="blitzit-card p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Sparkles className="w-5 h-5 text-primary" />
+          </div>
+          <h2 className="text-lg font-semibold text-foreground">{t.aiIntegration}</h2>
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div className="space-y-1">
+            <Label className="text-foreground">{t.aiEnabled}</Label>
+            <p className="text-sm text-muted-foreground">{t.aiEnabledDesc}</p>
+          </div>
+          <Switch 
+            checked={aiEnabled} 
+            onCheckedChange={setAiEnabled}
+          />
+        </div>
+
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <Key className="w-4 h-4" />
+            <span className="font-medium">{t.aiNote}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {language === 'ar' 
+              ? 'تم تكوين مفتاح API تلقائيًا. لا تحتاج إلى أي إعداد إضافي.'
+              : 'API key is auto-configured. No additional setup required.'}
+          </p>
         </div>
       </div>
 
