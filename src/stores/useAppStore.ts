@@ -4,6 +4,13 @@ import { persist } from 'zustand/middleware';
 type ThemeColor = 'green' | 'blue' | 'purple' | 'orange' | 'pink' | 'cyan';
 type Language = 'en' | 'ar';
 
+interface NotificationSettings {
+  taskReminders: boolean;
+  habitCheckins: boolean;
+  projectUpdates: boolean;
+  financialAlerts: boolean;
+}
+
 interface AppState {
   // Theme
   theme: 'light' | 'dark';
@@ -13,6 +20,10 @@ interface AppState {
   // Language & RTL
   language: Language;
   rtlEnabled: boolean;
+  
+  // Notifications
+  notificationsEnabled: boolean;
+  notificationSettings: NotificationSettings;
   
   // Focus state
   activeFocusTask: string | null;
@@ -25,6 +36,10 @@ interface AppState {
   toggleSidebar: () => void;
   setLanguage: (lang: Language) => void;
   setRtlEnabled: (enabled: boolean) => void;
+  
+  // Notification actions
+  setNotificationsEnabled: (enabled: boolean) => void;
+  updateNotificationSetting: (key: keyof NotificationSettings, value: boolean) => void;
   
   // Focus actions
   startFocus: (taskId: string) => void;
@@ -42,6 +57,13 @@ export const useAppStore = create<AppState>()(
       sidebarCollapsed: false,
       language: 'en',
       rtlEnabled: false,
+      notificationsEnabled: false,
+      notificationSettings: {
+        taskReminders: true,
+        habitCheckins: true,
+        projectUpdates: true,
+        financialAlerts: true,
+      },
       activeFocusTask: null,
       focusTimerRunning: false,
       focusTimeRemaining: 25 * 60,
@@ -75,6 +97,16 @@ export const useAppStore = create<AppState>()(
         document.documentElement.dir = enabled ? 'rtl' : 'ltr';
       },
 
+      // Notification actions
+      setNotificationsEnabled: (enabled) => set({ notificationsEnabled: enabled }),
+      
+      updateNotificationSetting: (key, value) => set((state) => ({
+        notificationSettings: {
+          ...state.notificationSettings,
+          [key]: value,
+        },
+      })),
+
       // Focus actions
       startFocus: (taskId) => set({ 
         activeFocusTask: taskId, 
@@ -107,6 +139,8 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         language: state.language,
         rtlEnabled: state.rtlEnabled,
+        notificationsEnabled: state.notificationsEnabled,
+        notificationSettings: state.notificationSettings,
       }),
     }
   )

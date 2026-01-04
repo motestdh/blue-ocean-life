@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2, Edit2, Trash2, BarChart3 } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, Loader2, Edit2, Trash2, BarChart3, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTransactions } from '@/hooks/useTransactions';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +41,8 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/dialogs/EditTransactionDialog';
 import { FinanceCharts } from '@/components/finance/FinanceCharts';
+import { exportToCSV } from '@/lib/export';
+import { exportTableToPDF } from '@/lib/pdf-export';
 import type { Database } from '@/integrations/supabase/types';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
@@ -166,6 +174,33 @@ export default function Finance() {
     );
   }
 
+  const handleExportCSV = () => {
+    exportToCSV(transactions, 'transactions', [
+      { key: 'date', label: 'Date' },
+      { key: 'type', label: 'Type' },
+      { key: 'category', label: 'Category' },
+      { key: 'description', label: 'Description' },
+      { key: 'amount', label: 'Amount' },
+      { key: 'status', label: 'Status' },
+    ]);
+    toast({ title: 'Success', description: 'Transactions exported to CSV' });
+  };
+
+  const handleExportPDF = () => {
+    exportTableToPDF(transactions, [
+      { header: 'Date', key: 'date' },
+      { header: 'Type', key: 'type' },
+      { header: 'Category', key: 'category' },
+      { header: 'Description', key: 'description' },
+      { header: 'Amount', key: 'amount' },
+    ], {
+      title: 'Financial Report',
+      subtitle: `Total Income: $${income.toLocaleString()} | Total Expenses: $${expenses.toLocaleString()}`,
+      filename: 'finance-report',
+    });
+    toast({ title: 'Success', description: 'Report exported to PDF' });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -176,17 +211,34 @@ export default function Finance() {
             Track your income and expenses
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Transaction
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Transaction</DialogTitle>
-            </DialogHeader>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Download className="w-4 h-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleExportCSV}>
+                Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPDF}>
+                Export PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Transaction
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Transaction</DialogTitle>
+              </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
                 <Label>Type</Label>
@@ -247,7 +299,8 @@ export default function Finance() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {/* Overview Cards */}

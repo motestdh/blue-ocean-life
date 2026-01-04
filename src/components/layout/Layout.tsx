@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { CommandPalette, useCommandPalette } from '@/components/CommandPalette';
 import { QuickAddDialog } from './QuickAddDialog';
 import { AIChatButton } from '@/components/ai/AIChatButton';
+import { GlobalSearch, useGlobalSearch } from '@/components/search/GlobalSearch';
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +19,7 @@ export function Layout({ children }: LayoutProps) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { open: commandOpen, setOpen: setCommandOpen } = useCommandPalette();
+  const { open: searchOpen, setOpen: setSearchOpen } = useGlobalSearch();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   useEffect(() => {
@@ -61,7 +63,10 @@ export function Layout({ children }: LayoutProps) {
             : (sidebarCollapsed ? 'ml-16' : 'ml-64')
         )}
       >
-        <Header onCommandPalette={() => setCommandOpen(true)} />
+        <Header 
+          onCommandPalette={() => setCommandOpen(true)} 
+          onSearch={() => setSearchOpen(true)}
+        />
         <main className="p-6">
           {children}
         </main>
@@ -71,6 +76,11 @@ export function Layout({ children }: LayoutProps) {
         open={commandOpen}
         onOpenChange={setCommandOpen}
         onQuickAdd={() => setQuickAddOpen(true)}
+      />
+      
+      <GlobalSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
       />
       
       <QuickAddDialog 
