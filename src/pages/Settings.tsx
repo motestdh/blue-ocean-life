@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key } from 'lucide-react';
+import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,22 @@ const fontOptions = [
   { name: 'inter', label: 'Inter', family: '"Inter", sans-serif' },
   { name: 'geist', label: 'Geist', family: '"Geist", sans-serif' },
   { name: 'mono', label: 'Monospace', family: '"SF Mono", "Monaco", "Inconsolata", monospace' },
+] as const;
+
+const timezones = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'America/New_York', label: 'Eastern Time (US)' },
+  { value: 'America/Chicago', label: 'Central Time (US)' },
+  { value: 'America/Denver', label: 'Mountain Time (US)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (US)' },
+  { value: 'Europe/London', label: 'London' },
+  { value: 'Europe/Paris', label: 'Paris' },
+  { value: 'Europe/Berlin', label: 'Berlin' },
+  { value: 'Asia/Dubai', label: 'Dubai' },
+  { value: 'Asia/Riyadh', label: 'Riyadh' },
+  { value: 'Asia/Tokyo', label: 'Tokyo' },
+  { value: 'Asia/Shanghai', label: 'Shanghai' },
+  { value: 'Australia/Sydney', label: 'Sydney' },
 ] as const;
 
 const translations = {
@@ -75,6 +92,21 @@ const translations = {
     aiEnabled: 'AI Features',
     aiEnabledDesc: 'Enable AI-powered suggestions and chat',
     aiNote: 'AI is powered by Lovable AI (no API key needed)',
+    dailyNotifications: 'Daily Notifications',
+    dailyNotificationsDesc: 'Configure email and Telegram notifications',
+    emailNotifications: 'Email Notifications',
+    emailNotificationsDesc: 'Receive daily summary via email',
+    notificationEmail: 'Notification Email',
+    telegramNotifications: 'Telegram Notifications',
+    telegramNotificationsDesc: 'Receive daily summary via Telegram',
+    telegramChatId: 'Telegram Chat ID',
+    telegramChatIdHelp: 'Get your chat ID from @userinfobot on Telegram',
+    notificationTime: 'Notification Time',
+    notificationTimeDesc: 'When to receive daily notifications',
+    timezone: 'Timezone',
+    saveSettings: 'Save Settings',
+    saving: 'Saving...',
+    settingsSaved: 'Settings saved successfully',
   },
   ar: {
     settings: 'الإعدادات',
@@ -109,6 +141,21 @@ const translations = {
     aiEnabled: 'ميزات الذكاء الاصطناعي',
     aiEnabledDesc: 'تفعيل الاقتراحات والدردشة بالذكاء الاصطناعي',
     aiNote: 'الذكاء الاصطناعي مدعوم من Lovable AI (لا حاجة لمفتاح API)',
+    dailyNotifications: 'الإشعارات اليومية',
+    dailyNotificationsDesc: 'تكوين إشعارات البريد الإلكتروني و Telegram',
+    emailNotifications: 'إشعارات البريد الإلكتروني',
+    emailNotificationsDesc: 'تلقي ملخص يومي عبر البريد الإلكتروني',
+    notificationEmail: 'بريد الإشعارات',
+    telegramNotifications: 'إشعارات Telegram',
+    telegramNotificationsDesc: 'تلقي ملخص يومي عبر Telegram',
+    telegramChatId: 'معرف محادثة Telegram',
+    telegramChatIdHelp: 'احصل على معرف المحادثة من @userinfobot على Telegram',
+    notificationTime: 'وقت الإشعار',
+    notificationTimeDesc: 'متى تريد تلقي الإشعارات اليومية',
+    timezone: 'المنطقة الزمنية',
+    saveSettings: 'حفظ الإعدادات',
+    saving: 'جاري الحفظ...',
+    settingsSaved: 'تم حفظ الإعدادات بنجاح',
   },
 };
 
@@ -126,6 +173,67 @@ export default function Settings() {
   const { isSupported, permission, requestPermission, showNotification } = useNotifications();
   const t = translations[language];
 
+  // Daily notification settings state
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [notificationEmail, setNotificationEmail] = useState('');
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [notificationTime, setNotificationTime] = useState('08:00');
+  const [timezone, setTimezone] = useState('UTC');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load profile notification settings
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('notification_email, telegram_chat_id, telegram_enabled, email_notifications_enabled, notification_time, timezone')
+        .eq('id', user.id)
+        .single();
+      
+      if (data) {
+        setEmailEnabled(data.email_notifications_enabled || false);
+        setNotificationEmail(data.notification_email || '');
+        setTelegramEnabled(data.telegram_enabled || false);
+        setTelegramChatId(data.telegram_chat_id || '');
+        setNotificationTime(data.notification_time?.slice(0, 5) || '08:00');
+        setTimezone(data.timezone || 'UTC');
+      }
+      setIsLoading(false);
+    };
+    
+    loadProfile();
+  }, [user?.id]);
+
+  const saveNotificationSettings = async () => {
+    if (!user?.id) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          email_notifications_enabled: emailEnabled,
+          notification_email: notificationEmail,
+          telegram_enabled: telegramEnabled,
+          telegram_chat_id: telegramChatId,
+          notification_time: notificationTime + ':00',
+          timezone: timezone,
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      toast.success(t.settingsSaved);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error(language === 'ar' ? 'فشل حفظ الإعدادات' : 'Failed to save settings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
   // Apply theme color, background, font, and RTL on mount
   useEffect(() => {
     const root = document.documentElement;
@@ -389,6 +497,119 @@ export default function Settings() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Daily Notifications */}
+      <div className="blitzit-card p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Send className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{t.dailyNotifications}</h2>
+            <p className="text-sm text-muted-foreground">{t.dailyNotificationsDesc}</p>
+          </div>
+        </div>
+
+        {/* Email Notifications */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between py-2">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-foreground">{t.emailNotifications}</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">{t.emailNotificationsDesc}</p>
+            </div>
+            <Switch 
+              checked={emailEnabled} 
+              onCheckedChange={setEmailEnabled}
+            />
+          </div>
+          
+          {emailEnabled && (
+            <div className="ml-6 space-y-2">
+              <Label className="text-sm text-foreground">{t.notificationEmail}</Label>
+              <Input
+                type="email"
+                placeholder="email@example.com"
+                value={notificationEmail}
+                onChange={(e) => setNotificationEmail(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Telegram Notifications */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between py-2">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-foreground">{t.telegramNotifications}</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">{t.telegramNotificationsDesc}</p>
+            </div>
+            <Switch 
+              checked={telegramEnabled} 
+              onCheckedChange={setTelegramEnabled}
+            />
+          </div>
+          
+          {telegramEnabled && (
+            <div className="ml-6 space-y-2">
+              <Label className="text-sm text-foreground">{t.telegramChatId}</Label>
+              <Input
+                type="text"
+                placeholder="123456789"
+                value={telegramChatId}
+                onChange={(e) => setTelegramChatId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{t.telegramChatIdHelp}</p>
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Notification Time */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-foreground">{t.notificationTime}</Label>
+            </div>
+            <Input
+              type="time"
+              value={notificationTime}
+              onChange={(e) => setNotificationTime(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-foreground">{t.timezone}</Label>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timezones.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Button 
+          onClick={saveNotificationSettings} 
+          disabled={isSaving}
+          className="w-full"
+        >
+          {isSaving ? t.saving : t.saveSettings}
+        </Button>
       </div>
 
       {/* Language */}
