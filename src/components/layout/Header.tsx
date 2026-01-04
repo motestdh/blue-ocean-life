@@ -1,8 +1,9 @@
-import { Bell, Search, Moon, Sun, Command, LogOut, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Moon, Sun, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/stores/useAppStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +13,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useNavigate } from 'react-router-dom';
 import { QuickAddDialog } from './QuickAddDialog';
+import { NotificationDropdown, Notification } from '@/components/notifications/NotificationDropdown';
+import { supabase } from '@/integrations/supabase/client';
+import { LogOut } from 'lucide-react';
 
 interface HeaderProps {
   onCommandPalette?: () => void;
@@ -22,6 +26,24 @@ export function Header({ onCommandPalette, onSearch }: HeaderProps) {
   const { theme, setTheme } = useAppStore();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Load avatar from profile
+  useEffect(() => {
+    const loadAvatar = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single();
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+      }
+    };
+    loadAvatar();
+  }, [user?.id]);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -37,6 +59,24 @@ export function Header({ onCommandPalette, onSearch }: HeaderProps) {
     .map((n: string) => n[0])
     .join('')
     .toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U';
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    );
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleClear = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleClearAll = () => {
+    setNotifications([]);
+  };
 
   return (
     <header className="h-14 border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-30">
@@ -83,19 +123,19 @@ export function Header({ onCommandPalette, onSearch }: HeaderProps) {
             )}
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-foreground relative"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-          </Button>
+          <NotificationDropdown
+            notifications={notifications}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onClear={handleClear}
+            onClearAll={handleClearAll}
+          />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-lg p-0 ml-1">
                 <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={avatarUrl || undefined} alt="Profile" className="object-cover" />
                   <AvatarFallback className="bg-primary text-primary-foreground rounded-lg text-sm">
                     {initials}
                   </AvatarFallback>

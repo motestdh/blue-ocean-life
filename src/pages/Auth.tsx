@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Zap, Mail, Lock, User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { MFAVerifyDialog } from '@/components/auth/MFAVerifyDialog';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,18 +14,33 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [showMFADialog, setShowMFADialog] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        navigate('/');
+        // Check if MFA is required
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        
+        if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+          // User has MFA enabled but hasn't verified yet
+          setShowMFADialog(true);
+        } else {
+          navigate('/');
+        }
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        navigate('/');
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        
+        if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+          setShowMFADialog(true);
+        } else {
+          navigate('/');
+        }
       }
     });
 
@@ -42,7 +58,7 @@ export default function Auth() {
           password,
         });
         if (error) throw error;
-        toast({ title: 'Welcome back!', description: 'Successfully logged in.' });
+        // MFA check happens in onAuthStateChange
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -67,6 +83,16 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMFASuccess = () => {
+    setShowMFADialog(false);
+    navigate('/');
+  };
+
+  const handleMFACancel = async () => {
+    await supabase.auth.signOut();
+    setShowMFADialog(false);
   };
 
   return (
@@ -160,6 +186,13 @@ export default function Auth() {
           </div>
         </div>
       </div>
+
+      <MFAVerifyDialog
+        open={showMFADialog}
+        onOpenChange={setShowMFADialog}
+        onSuccess={handleMFASuccess}
+        onCancel={handleMFACancel}
+      />
     </div>
   );
 }

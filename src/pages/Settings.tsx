@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock, Coins, Eye, EyeOff, ExternalLink, Bot } from 'lucide-react';
+import { Moon, Sun, Globe, Bell, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock, Coins, Eye, EyeOff, ExternalLink, Bot } from 'lucide-react';
+import { ProfileSection } from '@/components/profile/ProfileSection';
+import { SecuritySection } from '@/components/auth/SecuritySection';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -442,11 +444,7 @@ export default function Settings() {
     });
   };
 
-  const initials = user?.user_metadata?.full_name
-    ?.split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U';
+  // Removed initials - now handled in ProfileSection
 
   return (
     <div className="max-w-2xl space-y-6 animate-fade-in">
@@ -456,6 +454,11 @@ export default function Settings() {
           {t.managePreferences}
         </p>
       </div>
+      {/* Profile */}
+      <ProfileSection language={language} />
+
+      {/* Security - 2FA */}
+      <SecuritySection language={language} />
 
       {/* Appearance */}
       <div className="blitzit-card p-6 space-y-6">
@@ -977,26 +980,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Account */}
-      <div className="blitzit-card p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <User className="w-5 h-5 text-primary" />
-          </div>
-          <h2 className="text-lg font-semibold text-foreground">{t.account}</h2>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold">
-            {initials}
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-foreground">{user?.user_metadata?.full_name || 'User'}</p>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
-          </div>
-          <Button variant="outline" size="sm">{t.editProfile}</Button>
-        </div>
-      </div>
+      {/* Account section moved to ProfileSection component above */}
     </div>
   );
 }
