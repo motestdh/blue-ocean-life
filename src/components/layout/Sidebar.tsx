@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -16,31 +17,153 @@ import {
   Zap,
   BarChart3,
   Book,
-  Film
+  Film,
+  GripVertical
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/button';
+import { useNavOrder } from '@/hooks/useNavOrder';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { LucideIcon } from 'lucide-react';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: Calendar, label: 'Calendar', path: '/calendar' },
-  { icon: FolderKanban, label: 'Projects', path: '/projects' },
-  { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
-  { icon: Target, label: 'Focus', path: '/focus' },
-  { icon: Users, label: 'Clients', path: '/clients' },
-  { icon: DollarSign, label: 'Finance', path: '/finance' },
-  { icon: BookOpen, label: 'Learning', path: '/learning' },
-  { icon: Book, label: 'Books & Podcasts', path: '/books-podcasts' },
-  { icon: Film, label: 'Movies & Series', path: '/movies-series' },
-  { icon: FileText, label: 'Notes', path: '/notes' },
-  { icon: Repeat, label: 'Habits', path: '/habits' },
-  { icon: BarChart3, label: 'Analytics', path: '/analytics' },
-];
+const navItemsMap: Record<string, { icon: LucideIcon; label: string }> = {
+  '/': { icon: LayoutDashboard, label: 'Dashboard' },
+  '/calendar': { icon: Calendar, label: 'Calendar' },
+  '/projects': { icon: FolderKanban, label: 'Projects' },
+  '/tasks': { icon: CheckSquare, label: 'Tasks' },
+  '/focus': { icon: Target, label: 'Focus' },
+  '/clients': { icon: Users, label: 'Clients' },
+  '/finance': { icon: DollarSign, label: 'Finance' },
+  '/learning': { icon: BookOpen, label: 'Learning' },
+  '/books-podcasts': { icon: Book, label: 'Books & Podcasts' },
+  '/movies-series': { icon: Film, label: 'Movies & Series' },
+  '/notes': { icon: FileText, label: 'Notes' },
+  '/habits': { icon: Repeat, label: 'Habits' },
+  '/analytics': { icon: BarChart3, label: 'Analytics' },
+};
+
+function SortableNavItem({ 
+  path, 
+  isActive, 
+  sidebarCollapsed, 
+  rtlEnabled 
+}: { 
+  path: string; 
+  isActive: boolean; 
+  sidebarCollapsed: boolean;
+  rtlEnabled: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: path });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const item = navItemsMap[path];
+  if (!item) return null;
+
+  const Icon = item.icon;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-center group relative',
+        isDragging && 'opacity-50 z-50'
+      )}
+    >
+      {!sidebarCollapsed && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute left-0 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity touch-none p-1"
+        >
+          <GripVertical className="w-3 h-3" />
+        </button>
+      )}
+      <NavLink
+        to={path}
+        className={cn(
+          'flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative',
+          isActive
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
+          sidebarCollapsed ? 'justify-center px-2' : 'ml-4'
+        )}
+      >
+        {isActive && (
+          <div className={cn(
+            "absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-full",
+            rtlEnabled ? "right-0" : "left-0"
+          )} />
+        )}
+        <Icon className={cn(
+          'w-[18px] h-[18px] flex-shrink-0 transition-colors',
+          isActive ? 'text-primary' : 'group-hover:text-foreground'
+        )} />
+        {!sidebarCollapsed && (
+          <span className={cn(
+            "text-sm font-medium",
+            isActive && "text-primary"
+          )}>
+            {item.label}
+          </span>
+        )}
+      </NavLink>
+    </div>
+  );
+}
 
 export function Sidebar() {
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar, rtlEnabled } = useAppStore();
+  const { navOrder, updateNavOrder } = useNavOrder();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
+  const sortedNavItems = useMemo(() => {
+    return navOrder.filter(path => navItemsMap[path]);
+  }, [navOrder]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = sortedNavItems.indexOf(active.id as string);
+      const newIndex = sortedNavItems.indexOf(over.id as string);
+      const newOrder = arrayMove(sortedNavItems, oldIndex, newIndex);
+      updateNavOrder(newOrder);
+    }
+  };
 
   return (
     <aside
@@ -82,41 +205,23 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative',
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
-                sidebarCollapsed && 'justify-center px-2'
-              )}
-            >
-              {isActive && (
-                <div className={cn(
-                  "absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-full",
-                  rtlEnabled ? "right-0" : "left-0"
-                )} />
-              )}
-              <item.icon className={cn(
-                'w-[18px] h-[18px] flex-shrink-0 transition-colors',
-                isActive ? 'text-primary' : 'group-hover:text-foreground'
-              )} />
-              {!sidebarCollapsed && (
-                <span className={cn(
-                  "text-sm font-medium",
-                  isActive && "text-primary"
-                )}>
-                  {item.label}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={sortedNavItems} strategy={verticalListSortingStrategy}>
+            {sortedNavItems.map((path) => (
+              <SortableNavItem
+                key={path}
+                path={path}
+                isActive={location.pathname === path}
+                sidebarCollapsed={sidebarCollapsed}
+                rtlEnabled={rtlEnabled}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </nav>
 
       {/* Collapse Button (when collapsed) */}
