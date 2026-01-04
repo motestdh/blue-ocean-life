@@ -291,6 +291,7 @@ export type Database = {
         Row: {
           actual_cost: number | null
           budget: number | null
+          category: string | null
           client_id: string | null
           color: string | null
           created_at: string
@@ -307,6 +308,7 @@ export type Database = {
         Insert: {
           actual_cost?: number | null
           budget?: number | null
+          category?: string | null
           client_id?: string | null
           color?: string | null
           created_at?: string
@@ -323,6 +325,7 @@ export type Database = {
         Update: {
           actual_cost?: number | null
           budget?: number | null
+          category?: string | null
           client_id?: string | null
           color?: string | null
           created_at?: string

@@ -1,12 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, LayoutGrid, List, Loader2, GripVertical } from 'lucide-react';
+import { Plus, Search, Filter, LayoutGrid, List, Loader2, GripVertical, CalendarIcon, Tag, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects } from '@/hooks/useProjects';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
-import { Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   Select,
@@ -42,6 +41,12 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+
+const DEFAULT_CATEGORIES = ['General', 'Development', 'Design', 'Marketing', 'Personal', 'Research'];
 
 type Project = Database['public']['Tables']['projects']['Row'];
 
@@ -59,7 +64,16 @@ const priorityColors: Record<string, string> = {
   low: 'border-l-priority-low',
 };
 
-function SortableProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+function SortableProjectCard({ 
+  project, 
+  onClick, 
+  onCategoryChange 
+}: { 
+  project: Project; 
+  onClick: () => void;
+  onCategoryChange: (id: string, category: string) => void;
+}) {
+  const [editingCategory, setEditingCategory] = useState(false);
   const {
     attributes,
     listeners,
@@ -102,6 +116,41 @@ function SortableProjectCard({ project, onClick }: { project: Project; onClick: 
         <h3 className="font-semibold text-foreground">{project.title}</h3>
       </div>
 
+      {/* Category badge with edit */}
+      <div 
+        className="inline-flex items-center gap-1 mt-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {editingCategory ? (
+          <Select
+            value={(project as any).category || 'General'}
+            onValueChange={(value) => {
+              onCategoryChange(project.id, value);
+              setEditingCategory(false);
+            }}
+          >
+            <SelectTrigger className="h-6 text-xs w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DEFAULT_CATEGORIES.map((cat) => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Badge 
+            variant="secondary" 
+            className="text-xs cursor-pointer hover:bg-primary/20 transition-colors gap-1"
+            onClick={() => setEditingCategory(true)}
+          >
+            <Tag className="w-3 h-3" />
+            {(project as any).category || 'General'}
+            <Edit2 className="w-2.5 h-2.5 opacity-50" />
+          </Badge>
+        )}
+      </div>
+
       <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
         {project.description}
       </p>
@@ -123,7 +172,7 @@ function SortableProjectCard({ project, onClick }: { project: Project; onClick: 
         </span>
         {project.due_date && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
+            <CalendarIcon className="w-3.5 h-3.5" />
             <span>{format(new Date(project.due_date), 'MMM d')}</span>
           </div>
         )}
@@ -140,11 +189,14 @@ export default function Projects() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [localProjects, setLocalProjects] = useState<Project[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [newProject, setNewProject] = useState({
     title: '',
     description: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
     status: 'new' as 'new' | 'in-progress' | 'on-hold',
+    due_date: new Date(),
+    category: 'General',
   });
 
   const sensors = useSensors(
@@ -165,11 +217,24 @@ export default function Projects() {
 
   const displayProjects = localProjects.length > 0 ? localProjects : projects;
 
+  // Get unique categories from projects
+  const allCategories = useMemo(() => {
+    const cats = new Set(displayProjects.map(p => (p as any).category || 'General'));
+    DEFAULT_CATEGORIES.forEach(c => cats.add(c));
+    return ['all', ...Array.from(cats)];
+  }, [displayProjects]);
+
   const filteredProjects = displayProjects.filter((project) => {
     const matchesSearch = project.title.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === 'all' || project.status === filter;
-    return matchesSearch && matchesFilter;
+    const matchesCategory = categoryFilter === 'all' || (project as any).category === categoryFilter;
+    return matchesSearch && matchesFilter && matchesCategory;
   });
+
+  const handleCategoryChange = async (id: string, category: string) => {
+    await updateProject(id, { category } as any);
+    setLocalProjects(prev => prev.map(p => p.id === id ? { ...p, category } as Project : p));
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -194,14 +259,16 @@ export default function Projects() {
       description: newProject.description,
       priority: newProject.priority,
       status: newProject.status,
-    });
+      due_date: format(newProject.due_date, 'yyyy-MM-dd'),
+      category: newProject.category,
+    } as any);
 
     if (result.error) {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
     } else {
       toast({ title: 'Success', description: 'Project created!' });
       setDialogOpen(false);
-      setNewProject({ title: '', description: '', priority: 'medium', status: 'new' });
+      setNewProject({ title: '', description: '', priority: 'medium', status: 'new', due_date: new Date(), category: 'General' });
       if (result.data) {
         setLocalProjects(prev => [result.data as Project, ...prev]);
       }
@@ -295,12 +362,73 @@ export default function Projects() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Category</Label>
+                <Select
+                  value={newProject.category}
+                  onValueChange={(value) => 
+                    setNewProject({ ...newProject, category: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEFAULT_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Due Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newProject.due_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newProject.due_date ? format(newProject.due_date, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newProject.due_date}
+                      onSelect={(date) => setNewProject({ ...newProject, due_date: date || new Date() })}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
             <Button onClick={handleCreateProject} className="w-full">
               Create Project
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Category Tabs */}
+      <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="w-full">
+        <TabsList className="w-full justify-start overflow-x-auto bg-muted/50 h-auto p-1 flex-wrap">
+          {allCategories.map((cat) => (
+            <TabsTrigger 
+              key={cat} 
+              value={cat}
+              className="capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              {cat === 'all' ? 'All Categories' : cat}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
@@ -365,6 +493,7 @@ export default function Projects() {
                 key={project.id} 
                 project={project} 
                 onClick={() => navigate(`/projects/${project.id}`)}
+                onCategoryChange={handleCategoryChange}
               />
             ))}
           </div>
