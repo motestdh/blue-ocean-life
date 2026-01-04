@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 
 type ThemeColor = 'green' | 'blue' | 'purple' | 'orange' | 'pink' | 'cyan';
 type Language = 'en' | 'ar';
+type BackgroundStyle = 'default' | 'gradient' | 'subtle' | 'solid';
+type FontFamily = 'system' | 'inter' | 'geist' | 'mono';
 
 interface NotificationSettings {
   taskReminders: boolean;
@@ -16,6 +18,8 @@ interface AppState {
   theme: 'light' | 'dark';
   themeColor: ThemeColor;
   sidebarCollapsed: boolean;
+  backgroundStyle: BackgroundStyle;
+  fontFamily: FontFamily;
   
   // Language & RTL
   language: Language;
@@ -24,6 +28,9 @@ interface AppState {
   // Notifications
   notificationsEnabled: boolean;
   notificationSettings: NotificationSettings;
+  
+  // AI
+  aiEnabled: boolean;
   
   // Focus state
   activeFocusTask: string | null;
@@ -34,12 +41,17 @@ interface AppState {
   setTheme: (theme: 'light' | 'dark') => void;
   setThemeColor: (color: ThemeColor) => void;
   toggleSidebar: () => void;
+  setBackgroundStyle: (style: BackgroundStyle) => void;
+  setFontFamily: (font: FontFamily) => void;
   setLanguage: (lang: Language) => void;
   setRtlEnabled: (enabled: boolean) => void;
   
   // Notification actions
   setNotificationsEnabled: (enabled: boolean) => void;
   updateNotificationSetting: (key: keyof NotificationSettings, value: boolean) => void;
+  
+  // AI actions
+  setAiEnabled: (enabled: boolean) => void;
   
   // Focus actions
   startFocus: (taskId: string) => void;
@@ -55,6 +67,8 @@ export const useAppStore = create<AppState>()(
       theme: 'dark',
       themeColor: 'blue',
       sidebarCollapsed: false,
+      backgroundStyle: 'default' as const,
+      fontFamily: 'system' as const,
       language: 'en',
       rtlEnabled: false,
       notificationsEnabled: false,
@@ -64,6 +78,7 @@ export const useAppStore = create<AppState>()(
         projectUpdates: true,
         financialAlerts: true,
       },
+      aiEnabled: true,
       activeFocusTask: null,
       focusTimerRunning: false,
       focusTimeRemaining: 25 * 60,
@@ -84,6 +99,10 @@ export const useAppStore = create<AppState>()(
       },
       
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      
+      setBackgroundStyle: (style) => set({ backgroundStyle: style }),
+      
+      setFontFamily: (font) => set({ fontFamily: font }),
 
       // Language actions
       setLanguage: (lang) => {
@@ -106,6 +125,9 @@ export const useAppStore = create<AppState>()(
           [key]: value,
         },
       })),
+      
+      // AI actions
+      setAiEnabled: (enabled) => set({ aiEnabled: enabled }),
 
       // Focus actions
       startFocus: (taskId) => set({ 
@@ -137,10 +159,13 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         themeColor: state.themeColor,
         sidebarCollapsed: state.sidebarCollapsed,
+        backgroundStyle: state.backgroundStyle,
+        fontFamily: state.fontFamily,
         language: state.language,
         rtlEnabled: state.rtlEnabled,
         notificationsEnabled: state.notificationsEnabled,
         notificationSettings: state.notificationSettings,
+        aiEnabled: state.aiEnabled,
       }),
     }
   )
