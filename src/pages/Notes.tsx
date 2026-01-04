@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Plus, Search, FileText, Folder, Trash2, Pin, Loader2, Edit2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Search, FileText, Folder, Trash2, Pin, Loader2, Edit2, Tag, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useNotes } from '@/hooks/useNotes';
+import { useUserCategories } from '@/hooks/useUserCategories';
 import {
   Dialog,
   DialogContent,
@@ -21,32 +22,55 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { EditNoteDialog } from '@/components/dialogs/EditNoteDialog';
 import { formatDistanceToNow } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
 
 type Note = Database['public']['Tables']['notes']['Row'];
 
 export default function Notes() {
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
+  const { categories: userCategories } = useUserCategories();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [deletingNote, setDeletingNote] = useState<Note | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
     folder: 'General',
   });
 
-  const filteredNotes = notes.filter(note =>
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.folder?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Get categories - user categories + default "General"
+  const categoryList = useMemo(() => {
+    const baseCategories = [{ id: 'general', name: 'General', color: '#6B7280' }];
+    return [...baseCategories, ...userCategories];
+  }, [userCategories]);
+
+  const allCategoryNames = useMemo(() => {
+    return ['all', ...categoryList.map(c => c.name)];
+  }, [categoryList]);
+
+  const filteredNotes = notes.filter(note => {
+    const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      note.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      note.folder?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || note.folder === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   // Sort: pinned first, then by updated_at
   const sortedNotes = [...filteredNotes].sort((a, b) => {
@@ -135,13 +159,20 @@ export default function Notes() {
                 />
               </div>
               <div>
-                <Label htmlFor="folder">Folder</Label>
-                <Input
-                  id="folder"
+                <Label htmlFor="folder">Category</Label>
+                <Select
                   value={newNote.folder}
-                  onChange={(e) => setNewNote({ ...newNote, folder: e.target.value })}
-                  placeholder="General"
-                />
+                  onValueChange={(value) => setNewNote({ ...newNote, folder: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryList.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="content">Content</Label>
@@ -160,6 +191,19 @@ export default function Notes() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Category Tabs */}
+      <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="w-full">
+        <TabsList className="bg-muted/50 flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+          {categoryList.map((cat) => (
+            <TabsTrigger key={cat.id} value={cat.name} className="text-xs gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              {cat.name}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -225,10 +269,10 @@ export default function Notes() {
               {note.content || 'No content'}
             </p>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Folder className="w-3.5 h-3.5" />
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Tag className="w-3 h-3" />
                 {note.folder || 'General'}
-              </span>
+              </Badge>
               <span>{formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}</span>
             </div>
           </div>

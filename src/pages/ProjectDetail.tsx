@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Edit2, Loader2, GripVertical, Calendar, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit2, Loader2, GripVertical, CalendarIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects } from '@/hooks/useProjects';
@@ -8,6 +8,8 @@ import { useTasks } from '@/hooks/useTasks';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -153,7 +155,7 @@ function SortableTaskItem({
         
         {task.due_date && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Calendar className="w-3 h-3" />
+            <CalendarIcon className="w-3 h-3" />
             <span>{format(new Date(task.due_date), 'MMM d')}</span>
           </div>
         )}
@@ -224,7 +226,7 @@ export default function ProjectDetail() {
     title: '',
     description: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
-    due_date: '',
+    due_date: null as Date | null,
   });
 
   const [newSubtask, setNewSubtask] = useState({
@@ -308,7 +310,7 @@ export default function ProjectDetail() {
       description: newTask.description,
       priority: newTask.priority,
       project_id: id,
-      due_date: newTask.due_date || null,
+      due_date: newTask.due_date ? format(newTask.due_date, 'yyyy-MM-dd') : null,
       sort_order: displayTasks.length,
     });
     
@@ -317,7 +319,7 @@ export default function ProjectDetail() {
     } else {
       toast({ title: 'Success', description: 'Task added!' });
       setTaskDialogOpen(false);
-      setNewTask({ title: '', description: '', priority: 'medium', due_date: '' });
+      setNewTask({ title: '', description: '', priority: 'medium', due_date: null });
       if (result.data) {
         setLocalTasks(prev => [...prev, result.data as Task]);
       }
@@ -645,13 +647,30 @@ export default function ProjectDetail() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="task-due-date">Due Date</Label>
-                <Input
-                  id="task-due-date"
-                  type="date"
-                  value={newTask.due_date}
-                  onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                />
+                <Label>Due Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newTask.due_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newTask.due_date ? format(newTask.due_date, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newTask.due_date || undefined}
+                      onSelect={(date) => setNewTask({ ...newTask, due_date: date || null })}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <Button onClick={handleAddTask} className="w-full">
