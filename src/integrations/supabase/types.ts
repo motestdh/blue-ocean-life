@@ -333,22 +333,40 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          email_notifications_enabled: boolean | null
           full_name: string | null
           id: string
+          notification_email: string | null
+          notification_time: string | null
+          telegram_chat_id: string | null
+          telegram_enabled: boolean | null
+          timezone: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          email_notifications_enabled?: boolean | null
           full_name?: string | null
           id: string
+          notification_email?: string | null
+          notification_time?: string | null
+          telegram_chat_id?: string | null
+          telegram_enabled?: boolean | null
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          email_notifications_enabled?: boolean | null
           full_name?: string | null
           id?: string
+          notification_email?: string | null
+          notification_time?: string | null
+          telegram_chat_id?: string | null
+          telegram_enabled?: boolean | null
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []
