@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock, Coins } from 'lucide-react';
+import { Moon, Sun, Globe, Bell, User, Palette, Check, Type, Sparkles, Key, Mail, Send, Clock, Coins, Eye, EyeOff, ExternalLink, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -92,7 +92,17 @@ const translations = {
     aiIntegrationDesc: 'Configure AI features for your app',
     aiEnabled: 'AI Features',
     aiEnabledDesc: 'Enable AI-powered suggestions and chat',
-    aiNote: 'AI is powered by Lovable AI (no API key needed)',
+    geminiApiKey: 'Gemini API Key',
+    geminiApiKeyDesc: 'Your personal Gemini API key for AI features',
+    geminiApiKeyHelp: 'Get your free API key from Google AI Studio',
+    getApiKey: 'Get API Key',
+    testConnection: 'Test Connection',
+    testing: 'Testing...',
+    connectionSuccess: 'Gemini API key is valid!',
+    connectionFailed: 'Invalid API key. Please check and try again.',
+    telegramBotToken: 'Telegram Bot Token',
+    telegramBotTokenDesc: 'Your bot token for Telegram notifications',
+    telegramBotTokenHelp: 'Create a bot via @BotFather on Telegram',
     dailyNotifications: 'Daily Notifications',
     dailyNotificationsDesc: 'Configure email and Telegram notifications',
     emailNotifications: 'Email Notifications',
@@ -147,7 +157,17 @@ const translations = {
     aiIntegrationDesc: 'تكوين ميزات الذكاء الاصطناعي',
     aiEnabled: 'ميزات الذكاء الاصطناعي',
     aiEnabledDesc: 'تفعيل الاقتراحات والدردشة بالذكاء الاصطناعي',
-    aiNote: 'الذكاء الاصطناعي مدعوم من Lovable AI (لا حاجة لمفتاح API)',
+    geminiApiKey: 'مفتاح Gemini API',
+    geminiApiKeyDesc: 'مفتاح API الخاص بك لميزات الذكاء الاصطناعي',
+    geminiApiKeyHelp: 'احصل على مفتاح API المجاني من Google AI Studio',
+    getApiKey: 'احصل على المفتاح',
+    testConnection: 'اختبار الاتصال',
+    testing: 'جاري الاختبار...',
+    connectionSuccess: 'مفتاح Gemini API صالح!',
+    connectionFailed: 'مفتاح غير صالح. يرجى التحقق والمحاولة مرة أخرى.',
+    telegramBotToken: 'رمز بوت Telegram',
+    telegramBotTokenDesc: 'رمز البوت الخاص بك لإشعارات Telegram',
+    telegramBotTokenHelp: 'أنشئ بوت عبر @BotFather على Telegram',
     dailyNotifications: 'الإشعارات اليومية',
     dailyNotificationsDesc: 'تكوين إشعارات البريد الإلكتروني و Telegram',
     emailNotifications: 'إشعارات البريد الإلكتروني',
@@ -202,6 +222,14 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // AI Integration state
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [showBotToken, setShowBotToken] = useState(false);
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [isSavingAI, setIsSavingAI] = useState(false);
+
   // Load currency rates
   useEffect(() => {
     if (!ratesLoading) {
@@ -217,7 +245,7 @@ export default function Settings() {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('notification_email, telegram_chat_id, telegram_enabled, email_notifications_enabled, notification_time, timezone')
+        .select('notification_email, telegram_chat_id, telegram_enabled, email_notifications_enabled, notification_time, timezone, gemini_api_key, telegram_bot_token')
         .eq('id', user.id)
         .single();
       
@@ -228,6 +256,8 @@ export default function Settings() {
         setTelegramChatId(data.telegram_chat_id || '');
         setNotificationTime(data.notification_time?.slice(0, 5) || '08:00');
         setTimezone(data.timezone || 'UTC');
+        setGeminiApiKey(data.gemini_api_key || '');
+        setTelegramBotToken(data.telegram_bot_token || '');
       }
       setIsLoading(false);
     };
@@ -277,6 +307,61 @@ export default function Settings() {
       toast.error(language === 'ar' ? 'فشل حفظ الإعدادات' : 'Failed to save settings');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const saveAISettings = async () => {
+    if (!user?.id) return;
+    
+    setIsSavingAI(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          gemini_api_key: geminiApiKey,
+          telegram_bot_token: telegramBotToken,
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      toast.success(t.settingsSaved);
+    } catch (error) {
+      console.error('Error saving AI settings:', error);
+      toast.error(language === 'ar' ? 'فشل حفظ الإعدادات' : 'Failed to save settings');
+    } finally {
+      setIsSavingAI(false);
+    }
+  };
+
+  const testGeminiConnection = async () => {
+    if (!geminiApiKey.trim()) {
+      toast.error(language === 'ar' ? 'الرجاء إدخال مفتاح API' : 'Please enter an API key');
+      return;
+    }
+    
+    setIsTestingGemini(true);
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'Say "Hello"' }] }],
+          }),
+        }
+      );
+      
+      if (response.ok) {
+        toast.success(t.connectionSuccess);
+      } else {
+        toast.error(t.connectionFailed);
+      }
+    } catch (error) {
+      console.error('Test connection error:', error);
+      toast.error(t.connectionFailed);
+    } finally {
+      setIsTestingGemini(false);
     }
   };
   // Apply theme color, background, font, and RTL on mount
@@ -524,9 +609,12 @@ export default function Settings() {
       <div className="blitzit-card p-6 space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
-            <Sparkles className="w-5 h-5 text-primary" />
+            <Bot className="w-5 h-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">{t.aiIntegration}</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{t.aiIntegration}</h2>
+            <p className="text-sm text-muted-foreground">{t.aiIntegrationDesc}</p>
+          </div>
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -540,15 +628,120 @@ export default function Settings() {
           />
         </div>
 
+        <Separator />
+
+        {/* Gemini API Key */}
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-foreground">{t.geminiApiKey}</Label>
+            </div>
+            <p className="text-sm text-muted-foreground">{t.geminiApiKeyDesc}</p>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="relative">
+              <Input
+                type={showGeminiKey ? 'text' : 'password'}
+                placeholder="AIzaSy..."
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowGeminiKey(!showGeminiKey)}
+              >
+                {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <ExternalLink className="w-3 h-3" />
+                {t.getApiKey}
+              </a>
+              <span className="text-muted-foreground">•</span>
+              <p className="text-xs text-muted-foreground">{t.geminiApiKeyHelp}</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={testGeminiConnection}
+              disabled={isTestingGemini || !geminiApiKey.trim()}
+            >
+              {isTestingGemini ? t.testing : t.testConnection}
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Telegram Bot Token */}
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-foreground">{t.telegramBotToken}</Label>
+            </div>
+            <p className="text-sm text-muted-foreground">{t.telegramBotTokenDesc}</p>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="relative">
+              <Input
+                type={showBotToken ? 'text' : 'password'}
+                placeholder="123456789:ABC..."
+                value={telegramBotToken}
+                onChange={(e) => setTelegramBotToken(e.target.value)}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowBotToken(!showBotToken)}
+              >
+                {showBotToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">{t.telegramBotTokenHelp}</p>
+          </div>
+        </div>
+
+        <Button 
+          onClick={saveAISettings} 
+          disabled={isSavingAI}
+          className="w-full"
+        >
+          {isSavingAI ? t.saving : t.saveSettings}
+        </Button>
+
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <div className="flex items-center gap-2 text-sm text-primary">
             <Key className="w-4 h-4" />
-            <span className="font-medium">{t.aiNote}</span>
+            <span className="font-medium">
+              {language === 'ar' ? 'كيف يعمل' : 'How it works'}
+            </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {language === 'ar' 
-              ? 'تم تكوين مفتاح API تلقائيًا. لا تحتاج إلى أي إعداد إضافي.'
-              : 'API key is auto-configured. No additional setup required.'}
+              ? 'أضف مفتاح Gemini API المجاني للتحدث مع المساعد الذكي الذي يمكنه إدارة مهامك ومشاريعك وملاحظاتك والمزيد!'
+              : 'Add your free Gemini API key to chat with AI assistant that can manage your tasks, projects, notes, and more!'}
           </p>
         </div>
       </div>

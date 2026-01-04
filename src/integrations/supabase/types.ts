@@ -385,9 +385,11 @@ export type Database = {
           created_at: string
           email_notifications_enabled: boolean | null
           full_name: string | null
+          gemini_api_key: string | null
           id: string
           notification_email: string | null
           notification_time: string | null
+          telegram_bot_token: string | null
           telegram_chat_id: string | null
           telegram_enabled: boolean | null
           timezone: string | null
@@ -398,9 +400,11 @@ export type Database = {
           created_at?: string
           email_notifications_enabled?: boolean | null
           full_name?: string | null
+          gemini_api_key?: string | null
           id: string
           notification_email?: string | null
           notification_time?: string | null
+          telegram_bot_token?: string | null
           telegram_chat_id?: string | null
           telegram_enabled?: boolean | null
           timezone?: string | null
@@ -411,9 +415,11 @@ export type Database = {
           created_at?: string
           email_notifications_enabled?: boolean | null
           full_name?: string | null
+          gemini_api_key?: string | null
           id?: string
           notification_email?: string | null
           notification_time?: string | null
+          telegram_bot_token?: string | null
           telegram_chat_id?: string | null
           telegram_enabled?: boolean | null
           timezone?: string | null

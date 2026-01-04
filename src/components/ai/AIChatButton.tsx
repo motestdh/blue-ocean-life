@@ -1,16 +1,17 @@
-import { useState } from 'react';
-import { MessageCircle, X, Send, Loader2, Bot } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { MessageCircle, X, Send, Loader2, Bot, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAppStore } from '@/stores/useAppStore';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  actions?: any[];
 }
 
 export function AIChatButton() {
@@ -18,7 +19,15 @@ export function AIChatButton() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { language } = useAppStore();
+  const { language, aiEnabled } = useAppStore();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -29,6 +38,44 @@ export function AIChatButton() {
     setIsLoading(true);
 
     try {
+      // Try Gemini first (user's own API key)
+      const { data: geminiData, error: geminiError } = await supabase.functions.invoke('gemini-chat', {
+        body: { 
+          message: userMessage, 
+          conversationHistory: messages.map(m => ({ role: m.role, content: m.content }))
+        },
+      });
+
+      if (!geminiError && geminiData && !geminiData.error) {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: geminiData.response,
+          actions: geminiData.actions 
+        }]);
+        
+        // Show action confirmations
+        if (geminiData.actions && geminiData.actions.length > 0) {
+          geminiData.actions.forEach((action: any) => {
+            if (action.result?.success) {
+              toast.success(action.result.message);
+            }
+          });
+        }
+        return;
+      }
+
+      // If Gemini fails with missing API key, show helpful message
+      if (geminiData?.error?.includes('API key')) {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: language === 'ar' 
+            ? '⚙️ للحصول على ميزات الذكاء الاصطناعي الكاملة، يرجى إضافة مفتاح Gemini API في الإعدادات ← تكامل الذكاء الاصطناعي.\n\nيمكنك الحصول على مفتاح مجاني من Google AI Studio.'
+            : '⚙️ For full AI features, please add your Gemini API key in Settings → AI Integration.\n\nYou can get a free key from Google AI Studio.'
+        }]);
+        return;
+      }
+
+      // Fallback to basic AI chat
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: { message: userMessage, context: { language } },
       });
@@ -37,9 +84,9 @@ export function AIChatButton() {
 
       if (data?.error) {
         if (data.error.includes('Rate limit')) {
-          toast({ title: 'Rate Limited', description: 'Please wait a moment and try again.', variant: 'destructive' });
+          toast.error(language === 'ar' ? 'تم تجاوز الحد. انتظر قليلاً.' : 'Rate limited. Please wait.');
         } else if (data.error.includes('Payment')) {
-          toast({ title: 'Credits Required', description: 'Please add credits to continue using AI.', variant: 'destructive' });
+          toast.error(language === 'ar' ? 'يرجى إضافة رصيد للمتابعة' : 'Please add credits to continue');
         } else {
           throw new Error(data.error);
         }
@@ -49,7 +96,7 @@ export function AIChatButton() {
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (err) {
       console.error('AI chat error:', err);
-      toast({ title: 'Error', description: 'Failed to get AI response', variant: 'destructive' });
+      toast.error(language === 'ar' ? 'فشل الحصول على رد' : 'Failed to get response');
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +108,12 @@ export function AIChatButton() {
       sendMessage();
     }
   };
+
+  const clearChat = () => {
+    setMessages([]);
+  };
+
+  if (!aiEnabled) return null;
 
   return (
     <>
@@ -80,32 +133,47 @@ export function AIChatButton() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[380px] h-[500px] bg-card border border-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-scale-in">
+        <div className="fixed bottom-6 right-6 w-[400px] h-[550px] bg-card border border-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-scale-in">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border bg-muted/50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">AI Assistant</h3>
+                <h3 className="font-semibold text-foreground">
+                  {language === 'ar' ? 'المساعد الذكي' : 'AI Assistant'}
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  {language === 'ar' ? 'كيف يمكنني مساعدتك؟' : 'How can I help you?'}
+                  {language === 'ar' ? 'إدارة كل شيء بالذكاء الاصطناعي' : 'Manage everything with AI'}
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={clearChat} title={language === 'ar' ? 'محو المحادثة' : 'Clear chat'}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             <div className="space-y-4">
               {messages.length === 0 && (
                 <div className="text-center text-muted-foreground text-sm py-8">
                   <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>{language === 'ar' ? 'ابدأ محادثة مع المساعد الذكي' : 'Start a conversation with AI'}</p>
+                  <p className="font-medium mb-2">
+                    {language === 'ar' ? 'مرحباً! كيف يمكنني مساعدتك؟' : 'Hello! How can I help you?'}
+                  </p>
+                  <div className="text-xs space-y-1 max-w-[280px] mx-auto">
+                    <p>{language === 'ar' ? 'جرب أن تقول:' : 'Try saying:'}</p>
+                    <p className="text-primary/80">"{language === 'ar' ? 'أضف مهمة جديدة: مراجعة التقرير' : 'Add a new task: Review report'}"</p>
+                    <p className="text-primary/80">"{language === 'ar' ? 'أظهر لي مهامي اليوم' : 'Show me my tasks for today'}"</p>
+                    <p className="text-primary/80">"{language === 'ar' ? 'أضف نفقة 50 دولار للطعام' : 'Add expense $50 for food'}"</p>
+                  </div>
                 </div>
               )}
               {messages.map((msg, i) => (
@@ -118,13 +186,25 @@ export function AIChatButton() {
                 >
                   <div
                     className={cn(
-                      "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm",
+                      "max-w-[85%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap",
                       msg.role === 'user'
                         ? 'bg-primary text-primary-foreground rounded-br-md'
                         : 'bg-muted text-foreground rounded-bl-md'
                     )}
                   >
                     {msg.content}
+                    {msg.actions && msg.actions.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/50 text-xs opacity-80">
+                        {msg.actions.map((action: any, j: number) => (
+                          <div key={j} className="flex items-center gap-1">
+                            <span className={action.result?.success ? 'text-green-500' : 'text-red-500'}>
+                              {action.result?.success ? '✓' : '✗'}
+                            </span>
+                            <span>{action.function}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -145,7 +225,7 @@ export function AIChatButton() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={language === 'ar' ? 'اكتب رسالتك...' : 'Type a message...'}
+                placeholder={language === 'ar' ? 'اكتب أمرًا أو سؤالًا...' : 'Type a command or question...'}
                 className="flex-1"
                 disabled={isLoading}
               />
