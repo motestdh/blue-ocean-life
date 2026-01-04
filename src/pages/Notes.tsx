@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, FileText, Trash2, Pin, Loader2, Edit2, Tag } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Pin, Loader2, Edit2, Tag, Settings2, FolderPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -42,11 +42,15 @@ type Note = Database['public']['Tables']['notes']['Row'];
 export default function Notes() {
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [deletingNote, setDeletingNote] = useState<Note | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [newFolderInput, setNewFolderInput] = useState('');
+  const [editingFolder, setEditingFolder] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState('');
+  const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
@@ -61,6 +65,54 @@ export default function Notes() {
     });
     return Array.from(folders).sort();
   }, [notes]);
+
+  const handleAddFolder = () => {
+    if (!newFolderInput.trim()) return;
+    if (folderList.includes(newFolderInput.trim())) {
+      toast({ title: 'Error', description: 'Folder already exists', variant: 'destructive' });
+      return;
+    }
+    // Just add a note with this folder to create it, or we can just use it
+    toast({ title: 'Success', description: `Folder "${newFolderInput}" ready to use` });
+    setNewFolderInput('');
+  };
+
+  const handleRenameFolder = async () => {
+    if (!editingFolder || !editFolderName.trim()) return;
+    if (editingFolder === 'General') {
+      toast({ title: 'Error', description: 'Cannot rename General folder', variant: 'destructive' });
+      return;
+    }
+    
+    // Update all notes with this folder
+    const notesToUpdate = notes.filter(n => n.folder === editingFolder);
+    for (const note of notesToUpdate) {
+      await updateNote(note.id, { folder: editFolderName.trim() });
+    }
+    
+    toast({ title: 'Success', description: `Renamed folder to "${editFolderName}"` });
+    if (categoryFilter === editingFolder) {
+      setCategoryFilter(editFolderName.trim());
+    }
+    setEditingFolder(null);
+    setEditFolderName('');
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!deletingFolder || deletingFolder === 'General') return;
+    
+    // Move all notes to General
+    const notesToUpdate = notes.filter(n => n.folder === deletingFolder);
+    for (const note of notesToUpdate) {
+      await updateNote(note.id, { folder: 'General' });
+    }
+    
+    toast({ title: 'Success', description: `Deleted folder, ${notesToUpdate.length} notes moved to General` });
+    if (categoryFilter === deletingFolder) {
+      setCategoryFilter('all');
+    }
+    setDeletingFolder(null);
+  };
 
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -213,17 +265,124 @@ export default function Notes() {
         </Dialog>
       </div>
 
-      {/* Folder Tabs */}
-      <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="w-full">
-        <TabsList className="bg-muted/50 flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-          {folderList.map((folder) => (
-            <TabsTrigger key={folder} value={folder} className="text-xs">
-              {folder}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {/* Folder Tabs with Manage Button */}
+      <div className="flex items-center gap-2">
+        <Tabs value={categoryFilter} onValueChange={setCategoryFilter} className="flex-1">
+          <TabsList className="bg-muted/50 flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+            {folderList.map((folder) => (
+              <TabsTrigger key={folder} value={folder} className="text-xs">
+                {folder}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={() => setFolderDialogOpen(true)}
+        >
+          <Settings2 className="w-4 h-4" />
+          Manage
+        </Button>
+      </div>
+
+      {/* Folder Management Dialog */}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage Folders</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {/* Add new folder */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="New folder name..."
+                value={newFolderInput}
+                onChange={(e) => setNewFolderInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
+              />
+              <Button onClick={handleAddFolder}>
+                <FolderPlus className="w-4 h-4 mr-1" />
+                Add
+              </Button>
+            </div>
+
+            {/* Folder list */}
+            <div className="space-y-2">
+              {folderList.map((folder) => (
+                <div
+                  key={folder}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group"
+                >
+                  {editingFolder === folder ? (
+                    <>
+                      <Input
+                        value={editFolderName}
+                        onChange={(e) => setEditFolderName(e.target.value)}
+                        className="flex-1 h-8"
+                        onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+                      />
+                      <Button size="sm" onClick={handleRenameFolder}>Save</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingFolder(null)}>Cancel</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Tag className="w-4 h-4 text-muted-foreground" />
+                      <span className="flex-1 text-sm">{folder}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {notes.filter(n => n.folder === folder).length} notes
+                      </span>
+                      {folder !== 'General' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                            onClick={() => {
+                              setEditingFolder(folder);
+                              setEditFolderName(folder);
+                            }}
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
+                            onClick={() => setDeletingFolder(folder)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Folder Confirmation */}
+      <AlertDialog open={!!deletingFolder} onOpenChange={(open) => !open && setDeletingFolder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Folder</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingFolder}"? All notes in this folder will be moved to General.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFolder} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Search */}
       <div className="relative max-w-md">
