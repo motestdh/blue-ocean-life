@@ -62,7 +62,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       theme: 'dark',
       themeColor: 'blue',
@@ -86,16 +86,17 @@ export const useAppStore = create<AppState>()(
       // Theme actions
       setTheme: (theme) => {
         set({ theme });
-        document.documentElement.classList.toggle('dark', theme === 'dark');
+        document.documentElement.classList.remove('dark', 'light');
+        document.documentElement.classList.add(theme);
       },
       
       setThemeColor: (color) => {
         set({ themeColor: color });
-        const root = document.documentElement;
-        ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'].forEach(c => {
-          root.classList.remove(`theme-${c}`);
+        const allColors = ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'];
+        allColors.forEach(c => {
+          document.documentElement.classList.remove(`theme-${c}`);
         });
-        root.classList.add(`theme-${color}`);
+        document.documentElement.classList.add(`theme-${color}`);
       },
       
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),

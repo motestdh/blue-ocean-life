@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const DEFAULT_NAV_ORDER = [
   '/', '/calendar', '/projects', '/tasks', '/focus', '/clients', 
-  '/finance', '/learning', '/books-podcasts', '/movies-series', 
+  '/subscriptions', '/finance', '/learning', '/books-podcasts', '/movies-series', 
   '/notes', '/habits', '/analytics'
 ];
 
