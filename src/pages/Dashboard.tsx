@@ -325,7 +325,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in blitzit-gradient-subtle min-h-screen -m-6 p-6">
+    <div className="space-y-4 md:space-y-6 animate-fade-in blitzit-gradient-subtle min-h-screen -m-3 md:-m-6 p-3 md:p-6">
       {/* Active Timer (if running) */}
       {activeTimer && (
         <ActiveTimer 
@@ -344,23 +344,23 @@ export default function Dashboard() {
       />
 
       {/* Header with Today's Overview */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" className="gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button variant="outline" size="sm" className="gap-1 md:gap-2 h-8 px-2 md:px-3 text-xs md:text-sm">
             All
-            <ChevronDown className="w-4 h-4" />
+            <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">Today</h1>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-4 h-4" />
-            <Clock className="w-4 h-4" />
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Today</h1>
+          <div className="flex items-center gap-1 md:gap-2 text-muted-foreground">
+            <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+            <Clock className="w-3 h-3 md:w-4 md:h-4" />
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Progress 
               value={(completedToday.length / Math.max(todayTasks.length + completedToday.length, 1)) * 100} 
-              className="w-24 h-2" 
+              className="w-16 md:w-24 h-2" 
             />
             <span>{completedToday.length}/{todayTasks.length + completedToday.length} DONE</span>
           </div>
@@ -368,7 +368,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Left Column - Task List */}
         <div className="lg:col-span-2 space-y-4">
           {/* Today's Tasks */}

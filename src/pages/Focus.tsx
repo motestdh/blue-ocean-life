@@ -139,13 +139,13 @@ export default function Focus() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-4 md:space-y-8 animate-fade-in">
       {/* Session Type Tabs */}
       <div className="flex items-center justify-center">
-        <div className="blitzit-card inline-flex p-1.5 gap-1">
+        <div className="blitzit-card inline-flex p-1 md:p-1.5 gap-0.5 md:gap-1 flex-wrap justify-center">
           <button 
             className={cn(
-              'px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2',
+              'px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-all duration-300 flex items-center gap-1 md:gap-2',
               sessionType === 'focus' 
                 ? 'bg-primary text-primary-foreground shadow-lg' 
                 : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
@@ -153,12 +153,12 @@ export default function Focus() {
             onClick={() => changeSessionType('focus')}
             disabled={isRunning}
           >
-            <Zap className="w-4 h-4" />
+            <Zap className="w-3 h-3 md:w-4 md:h-4" />
             Focus
           </button>
           <button 
             className={cn(
-              'px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2',
+              'px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-all duration-300 flex items-center gap-1 md:gap-2',
               sessionType === 'short-break' 
                 ? 'bg-emerald-500 text-white shadow-lg' 
                 : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
@@ -166,12 +166,13 @@ export default function Focus() {
             onClick={() => changeSessionType('short-break')}
             disabled={isRunning}
           >
-            <Coffee className="w-4 h-4" />
-            Short Break
+            <Coffee className="w-3 h-3 md:w-4 md:h-4" />
+            <span className="hidden sm:inline">Short Break</span>
+            <span className="sm:hidden">Short</span>
           </button>
           <button 
             className={cn(
-              'px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2',
+              'px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-all duration-300 flex items-center gap-1 md:gap-2',
               sessionType === 'long-break' 
                 ? 'bg-emerald-500 text-white shadow-lg' 
                 : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
@@ -179,14 +180,15 @@ export default function Focus() {
             onClick={() => changeSessionType('long-break')}
             disabled={isRunning}
           >
-            <Coffee className="w-4 h-4" />
-            Long Break
+            <Coffee className="w-3 h-3 md:w-4 md:h-4" />
+            <span className="hidden sm:inline">Long Break</span>
+            <span className="sm:hidden">Long</span>
           </button>
         </div>
       </div>
 
       {/* Main Timer Card */}
-      <div className="blitzit-card p-10 text-center relative overflow-hidden">
+      <div className="blitzit-card p-4 md:p-10 text-center relative overflow-hidden">
         {/* Background glow effect */}
         <div 
           className={cn(
@@ -198,7 +200,7 @@ export default function Focus() {
         
         <div className="relative z-10">
           {/* Timer Circle */}
-          <div className="relative w-80 h-80 mx-auto mb-8">
+          <div className="relative w-56 h-56 md:w-80 md:h-80 mx-auto mb-4 md:mb-8">
             {/* Outer glow ring */}
             <div 
               className={cn(
@@ -236,27 +238,29 @@ export default function Focus() {
                   filter: isRunning ? 'drop-shadow(0 0 10px currentColor)' : 'none'
                 }}
               />
-              {/* Tick marks */}
-              {[...Array(60)].map((_, i) => (
-                <line
-                  key={i}
-                  x1="160"
-                  y1="30"
-                  x2="160"
-                  y2={i % 5 === 0 ? "40" : "35"}
-                  stroke="hsl(var(--muted-foreground))"
-                  strokeWidth={i % 5 === 0 ? "2" : "1"}
-                  opacity={i % 5 === 0 ? "0.5" : "0.2"}
-                  transform={`rotate(${i * 6} 160 160)`}
-                />
-              ))}
+              {/* Tick marks - hidden on mobile for cleaner look */}
+              <g className="hidden md:block">
+                {[...Array(60)].map((_, i) => (
+                  <line
+                    key={i}
+                    x1="160"
+                    y1="30"
+                    x2="160"
+                    y2={i % 5 === 0 ? "40" : "35"}
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={i % 5 === 0 ? "2" : "1"}
+                    opacity={i % 5 === 0 ? "0.5" : "0.2"}
+                    transform={`rotate(${i * 6} 160 160)`}
+                  />
+                ))}
+              </g>
             </svg>
             
             {/* Timer content */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span 
                 className={cn(
-                  'text-7xl font-bold tabular-nums tracking-tight transition-all duration-300',
+                  'text-5xl md:text-7xl font-bold tabular-nums tracking-tight transition-all duration-300',
                   isRunning ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
@@ -265,7 +269,7 @@ export default function Focus() {
                 {String(seconds).padStart(2, '0')}
               </span>
               <span className={cn(
-                'text-sm font-medium mt-2 px-4 py-1 rounded-full',
+                'text-xs md:text-sm font-medium mt-1 md:mt-2 px-3 md:px-4 py-0.5 md:py-1 rounded-full',
                 sessionType === 'focus' 
                   ? 'bg-primary/20 text-primary' 
                   : 'bg-emerald-500/20 text-emerald-400'
@@ -280,45 +284,45 @@ export default function Focus() {
 
           {/* Active Task Display */}
           {activeTask && (
-            <div className="mb-8 mx-auto max-w-md">
-              <div className="blitzit-card p-4 border-primary/30 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                    <Target className="w-5 h-5 text-primary" />
+            <div className="mb-4 md:mb-8 mx-auto max-w-md">
+              <div className="blitzit-card p-3 md:p-4 border-primary/30 flex items-center justify-between gap-2 md:gap-4">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                   </div>
-                  <div className="text-left">
+                  <div className="text-left min-w-0">
                     <p className="text-xs text-muted-foreground">Working on</p>
-                    <p className="font-semibold text-foreground">{activeTask.title}</p>
+                    <p className="font-semibold text-foreground text-sm md:text-base truncate">{activeTask.title}</p>
                   </div>
                 </div>
                 <Button 
                   size="sm" 
-                  className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                  className="gap-1 md:gap-2 bg-emerald-500 hover:bg-emerald-600 flex-shrink-0"
                   onClick={() => handleTaskComplete(activeTask.id)}
                 >
                   <Check className="w-4 h-4" />
-                  Done
+                  <span className="hidden sm:inline">Done</span>
                 </Button>
               </div>
             </div>
           )}
 
           {/* Controls */}
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-3 md:gap-4">
             <Button
               variant="outline"
               size="icon"
               onClick={handleStop}
-              className="h-14 w-14 rounded-full border-2 hover:bg-destructive/20 hover:border-destructive hover:text-destructive transition-all duration-300"
+              className="h-12 w-12 md:h-14 md:w-14 rounded-full border-2 hover:bg-destructive/20 hover:border-destructive hover:text-destructive transition-all duration-300"
             >
-              <Square className="h-5 w-5" />
+              <Square className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
             
             <Button
               size="icon"
               onClick={isRunning ? handlePause : () => handleStart(activeFocusTask || undefined)}
               className={cn(
-                'h-20 w-20 rounded-full shadow-2xl transition-all duration-300 relative',
+                'h-16 w-16 md:h-20 md:w-20 rounded-full shadow-2xl transition-all duration-300 relative',
                 sessionType === 'focus' 
                   ? 'bg-primary hover:bg-primary/90' 
                   : 'bg-emerald-500 hover:bg-emerald-600',
@@ -329,9 +333,9 @@ export default function Focus() {
                 <span className="absolute inset-0 rounded-full animate-ping opacity-20 bg-current" />
               )}
               {isRunning ? (
-                <Pause className="h-8 w-8" />
+                <Pause className="h-6 w-6 md:h-8 md:w-8" />
               ) : (
-                <Play className="h-8 w-8 ml-1" />
+                <Play className="h-6 w-6 md:h-8 md:w-8 ml-0.5 md:ml-1" />
               )}
             </Button>
             
@@ -339,31 +343,31 @@ export default function Focus() {
               variant="outline"
               size="icon"
               onClick={handleSkip}
-              className="h-14 w-14 rounded-full border-2 hover:bg-muted transition-all duration-300"
+              className="h-12 w-12 md:h-14 md:w-14 rounded-full border-2 hover:bg-muted transition-all duration-300"
             >
-              <SkipForward className="h-5 w-5" />
+              <SkipForward className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         {/* Task Queue */}
-        <div className="blitzit-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
+        <div className="blitzit-card p-4 md:p-6">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-base md:text-lg font-semibold text-foreground flex items-center gap-2">
+              <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
               Task Queue
             </h2>
-            <span className="text-sm text-muted-foreground">{pendingTasks.length} tasks</span>
+            <span className="text-xs md:text-sm text-muted-foreground">{pendingTasks.length} tasks</span>
           </div>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+          <div className="space-y-2 max-h-[250px] md:max-h-[300px] overflow-y-auto pr-1 md:pr-2">
             {pendingTasks.slice(0, 8).map((task) => (
               <div 
                 key={task.id} 
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer group',
+                  'flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg md:rounded-xl border transition-all duration-200 cursor-pointer group',
                   activeFocusTask === task.id
                     ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10'
                     : 'border-border/50 hover:border-primary/50 hover:bg-white/5'
@@ -376,11 +380,11 @@ export default function Focus() {
                   className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">{task.title}</p>
+                  <p className="font-medium text-foreground truncate text-sm md:text-base">{task.title}</p>
                   {task.estimated_time && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Timer className="w-3 h-3" />
-                      {task.estimated_time}m estimated
+                      {task.estimated_time}m
                     </p>
                   )}
                 </div>
@@ -388,14 +392,14 @@ export default function Focus() {
                   <Button 
                     size="sm" 
                     variant="ghost" 
-                    className="gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-8 px-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleStart(task.id);
                     }}
                   >
                     <Play className="w-3 h-3" />
-                    Start
+                    <span className="hidden sm:inline">Start</span>
                   </Button>
                 )}
               </div>
@@ -403,40 +407,40 @@ export default function Focus() {
           </div>
 
           {pendingTasks.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No tasks in queue</p>
-              <p className="text-sm">Add some tasks to focus on!</p>
+            <div className="text-center py-6 md:py-8 text-muted-foreground">
+              <Target className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-2 md:mb-3 opacity-50" />
+              <p className="text-sm md:text-base">No tasks in queue</p>
+              <p className="text-xs md:text-sm">Add some tasks to focus on!</p>
             </div>
           )}
         </div>
 
         {/* Session Stats */}
-        <div className="space-y-4">
-          <div className="blitzit-card p-6">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
-              <Flame className="w-5 h-5 text-orange-500" />
+        <div className="space-y-3 md:space-y-4">
+          <div className="blitzit-card p-4 md:p-6">
+            <h2 className="text-base md:text-lg font-semibold text-foreground flex items-center gap-2 mb-3 md:mb-4">
+              <Flame className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
               Today's Progress
             </h2>
             
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
-                <p className="text-3xl font-bold text-primary">{sessionsToday}</p>
-                <p className="text-xs text-muted-foreground mt-1">Sessions</p>
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
+              <div className="text-center p-2 md:p-4 rounded-lg md:rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+                <p className="text-xl md:text-3xl font-bold text-primary">{sessionsToday}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">Sessions</p>
               </div>
-              <div className="text-center p-4 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20">
-                <p className="text-3xl font-bold text-emerald-400">{formatDuration(totalFocusTime)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Focus Time</p>
+              <div className="text-center p-2 md:p-4 rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20">
+                <p className="text-xl md:text-3xl font-bold text-emerald-400">{formatDuration(totalFocusTime)}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">Focus</p>
               </div>
-              <div className="text-center p-4 rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/20">
-                <p className="text-3xl font-bold text-orange-400">{tasksCompleted}</p>
-                <p className="text-xs text-muted-foreground mt-1">Completed</p>
+              <div className="text-center p-2 md:p-4 rounded-lg md:rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-500/5 border border-orange-500/20">
+                <p className="text-xl md:text-3xl font-bold text-orange-400">{tasksCompleted}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">Done</p>
               </div>
             </div>
           </div>
 
-          {/* Quick Tips */}
-          <div className="blitzit-card p-6">
+          {/* Quick Tips - Hidden on mobile */}
+          <div className="blitzit-card p-4 md:p-6 hidden md:block">
             <h3 className="font-semibold text-foreground mb-3">💡 Focus Tips</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
