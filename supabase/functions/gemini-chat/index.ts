@@ -285,6 +285,45 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "manage_subscriptions",
+      description: "Create, update, delete, list subscriptions/agreements with clients. Used for recurring services like hosting or technical support.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["create", "update", "delete", "list", "mark_paid"] },
+          subscription_id: { type: "string", description: "Subscription ID (required for update, delete, mark_paid)" },
+          client_id: { type: "string", description: "Client UUID (required for create)" },
+          type: { type: "string", enum: ["hosting", "support", "other"], description: "Subscription type" },
+          name: { type: "string", description: "Subscription name (e.g., 'Monthly Support Package')" },
+          amount: { type: "number", description: "Amount to charge" },
+          currency: { type: "string", description: "Currency code (USD, EUR, DZD)" },
+          billing_cycle: { type: "string", enum: ["monthly", "yearly"], description: "How often to bill" },
+          start_date: { type: "string", description: "Start date YYYY-MM-DD" },
+          next_payment_date: { type: "string", description: "Next payment due date YYYY-MM-DD" },
+          status: { type: "string", enum: ["active", "paused", "cancelled", "expired"] },
+          notes: { type: "string", description: "Notes about the subscription" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_client",
+      description: "Search for a client by name to get their UUID. Use this before creating subscriptions for a client.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Client name or partial name to search for" },
+        },
+        required: ["name"],
+      },
+    },
+  },
 ];
 
 // Execute tool functions
@@ -326,6 +365,10 @@ async function executeTool(
         return await handleSearchCourse(supabase, userId, args);
       case "manage_focus_sessions":
         return await handleFocusSessions(supabase, userId, args);
+      case "manage_subscriptions":
+        return await handleSubscriptions(supabase, userId, args);
+      case "search_client":
+        return await handleSearchClient(supabase, userId, args);
       default:
         return { success: false, message: `Unknown tool: ${toolName}` };
     }
@@ -1429,6 +1472,183 @@ async function handleFocusSessions(supabase: any, userId: string, args: any) {
   }
 }
 
+// Handle subscriptions
+async function handleSubscriptions(supabase: any, userId: string, args: any) {
+  const { action, subscription_id, client_id, type, name, amount, currency, billing_cycle, start_date, next_payment_date, status, notes } = args;
+
+  switch (action) {
+    case "create":
+      if (!client_id) return { success: false, message: "Client ID is required. Use search_client first to find the client." };
+      if (!name) return { success: false, message: "Subscription name is required" };
+      
+      const today = new Date().toISOString().split('T')[0];
+      const { data: newSub, error: createError } = await supabase
+        .from("subscriptions")
+        .insert({
+          user_id: userId,
+          client_id,
+          type: type || "support",
+          name,
+          amount: amount || 0,
+          currency: currency || "USD",
+          billing_cycle: billing_cycle || "monthly",
+          start_date: start_date || today,
+          next_payment_date: next_payment_date || today,
+          status: status || "active",
+          notes: notes || "",
+        })
+        .select(`*, client:clients(name, company)`)
+        .single();
+      if (createError) throw createError;
+      return { 
+        success: true, 
+        message: `Created subscription "${newSub.name}" for ${newSub.client?.name}`, 
+        data: newSub 
+      };
+
+    case "update":
+      if (!subscription_id) return { success: false, message: "Subscription ID is required" };
+      const updates: any = {};
+      if (client_id) updates.client_id = client_id;
+      if (type) updates.type = type;
+      if (name) updates.name = name;
+      if (amount !== undefined) updates.amount = amount;
+      if (currency) updates.currency = currency;
+      if (billing_cycle) updates.billing_cycle = billing_cycle;
+      if (start_date) updates.start_date = start_date;
+      if (next_payment_date) updates.next_payment_date = next_payment_date;
+      if (status) updates.status = status;
+      if (notes !== undefined) updates.notes = notes;
+      
+      const { data: updatedSub, error: updateError } = await supabase
+        .from("subscriptions")
+        .update(updates)
+        .eq("id", subscription_id)
+        .eq("user_id", userId)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+      return { success: true, message: `Updated subscription "${updatedSub.name}"`, data: updatedSub };
+
+    case "delete":
+      if (!subscription_id) return { success: false, message: "Subscription ID is required" };
+      const { error: deleteError } = await supabase
+        .from("subscriptions")
+        .delete()
+        .eq("id", subscription_id)
+        .eq("user_id", userId);
+      if (deleteError) throw deleteError;
+      return { success: true, message: "Subscription deleted successfully" };
+
+    case "mark_paid":
+      if (!subscription_id) return { success: false, message: "Subscription ID is required" };
+      
+      // Get current subscription
+      const { data: currentSub, error: getError } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("id", subscription_id)
+        .eq("user_id", userId)
+        .single();
+      if (getError) throw getError;
+      
+      // Calculate next payment date
+      const currentNext = new Date(currentSub.next_payment_date);
+      const nextDate = currentSub.billing_cycle === "monthly"
+        ? new Date(currentNext.setMonth(currentNext.getMonth() + 1))
+        : new Date(currentNext.setFullYear(currentNext.getFullYear() + 1));
+      
+      const { data: paidSub, error: paidError } = await supabase
+        .from("subscriptions")
+        .update({ next_payment_date: nextDate.toISOString().split('T')[0] })
+        .eq("id", subscription_id)
+        .eq("user_id", userId)
+        .select()
+        .single();
+      if (paidError) throw paidError;
+      return { 
+        success: true, 
+        message: `Payment recorded. Next payment due: ${paidSub.next_payment_date}`, 
+        data: paidSub 
+      };
+
+    case "list":
+      let query = supabase
+        .from("subscriptions")
+        .select(`*, client:clients(name, company)`)
+        .eq("user_id", userId)
+        .order("next_payment_date", { ascending: true });
+      
+      if (status) query = query.eq("status", status);
+      if (type) query = query.eq("type", type);
+      if (client_id) query = query.eq("client_id", client_id);
+      
+      const { data: subs, error: listError } = await query;
+      if (listError) throw listError;
+      
+      if (!subs || subs.length === 0) {
+        return { success: true, message: "No subscriptions found", data: [] };
+      }
+      
+      // Check for overdue
+      const today2 = new Date();
+      today2.setHours(0, 0, 0, 0);
+      const overdue = subs.filter((s: any) => s.status === "active" && new Date(s.next_payment_date) < today2);
+      
+      const summary = subs.map((s: any) => 
+        `• ${s.name} (${s.client?.name}) - ${s.amount} ${s.currency}/${s.billing_cycle === 'monthly' ? 'شهري' : 'سنوي'} - Next: ${s.next_payment_date}`
+      ).join('\n');
+      
+      return { 
+        success: true, 
+        message: `Found ${subs.length} subscriptions${overdue.length > 0 ? ` (${overdue.length} overdue!)` : ''}:\n${summary}`,
+        data: subs 
+      };
+
+    default:
+      return { success: false, message: `Unknown action: ${action}` };
+  }
+}
+
+// Search client by name
+async function handleSearchClient(supabase: any, userId: string, args: any) {
+  const { name } = args;
+  
+  if (!name) {
+    return { success: false, message: "Client name is required to search" };
+  }
+  
+  const { data: clients, error } = await supabase
+    .from("clients")
+    .select("id, name, company, status")
+    .eq("user_id", userId)
+    .ilike("name", `%${name}%`)
+    .limit(5);
+    
+  if (error) throw error;
+  
+  if (!clients || clients.length === 0) {
+    return { 
+      success: false, 
+      message: `No client found matching "${name}". Use manage_clients action:list to see all clients.` 
+    };
+  }
+  
+  if (clients.length === 1) {
+    return { 
+      success: true, 
+      message: `Found client: "${clients[0].name}" (${clients[0].company || 'No company'}) with ID: ${clients[0].id}`,
+      data: clients[0]
+    };
+  }
+  
+  return { 
+    success: true, 
+    message: `Found ${clients.length} clients matching "${name}"`,
+    data: clients
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1474,50 +1694,121 @@ serve(async (req) => {
 
     const { message, conversationHistory } = await req.json();
 
-    // Build system prompt with strict rules
-    const systemPrompt = `You are an AI assistant for LifeOS, a personal life management application. You help users manage their tasks, projects, courses, habits, finances, and more.
+    // Build system prompt with complete LifeOS knowledge
+    const systemPrompt = `أنت مساعد ذكي لتطبيق LifeOS - نظام إدارة الحياة الشخصية والعمل. تساعد المستخدم في إدارة كل جوانب حياته.
 
-CRITICAL RULES:
-1. COURSES vs PROJECTS: A course is for LEARNING (use manage_courses). A project is for WORK/PERSONAL projects (use manage_projects). NEVER confuse them.
-   - "أضف كورس" or "add course" → manage_courses ONLY
-   - "أضف مشروع" or "add project" → manage_projects ONLY
-   
-2. MULTI-STEP OPERATIONS - EXECUTE IMMEDIATELY:
-   When creating a course with lessons:
-   - First create the course using manage_courses
-   - The response will contain the course UUID (like "abc123-...")
-   - Then IMMEDIATELY call manage_lessons for EACH lesson using that EXACT UUID
-   - DO NOT tell the user to wait - execute ALL operations in ONE turn
-   - DO NOT invent fake IDs - always use real UUIDs from previous responses
-   
-3. TASKS ON PROJECTS: When user wants to add a task to a specific project:
-   - First call search_project with the project name
-   - Use the returned project UUID as project_id in manage_tasks
-   - If project not found, inform the user
+═══════════════════════════════════════════════════════════════
+                        نظرة عامة على LifeOS
+═══════════════════════════════════════════════════════════════
 
-4. ESTIMATED TIME: When creating tasks, you can include estimated_time in minutes (e.g., 30 for 30 minutes).
+LifeOS هو تطبيق شامل لإدارة:
+• المهام والمشاريع (Tasks & Projects)
+• العملاء والاشتراكات (Clients & Subscriptions)
+• الكورسات والتعلم (Learning & Courses)
+• العادات اليومية (Habits)
+• المالية (Finance)
+• الملاحظات (Notes)
+• الأفلام والكتب (Movies, Books, Podcasts)
+• جلسات التركيز (Focus Sessions)
 
-5. ONLY do what the user asks. Do not assume extra actions.
+═══════════════════════════════════════════════════════════════
+                        القواعد الحرجة
+═══════════════════════════════════════════════════════════════
 
-Available tools:
-- manage_tasks: Create/update/delete/list/complete tasks (with estimated_time support)
-- search_project: Find a project by name to get its UUID
-- manage_projects: Create/update/delete/list work projects
-- manage_courses: Create/update/delete/list learning courses
-- search_course: Find a course by name to get its UUID
-- manage_lessons: Create/update/delete/list/complete lessons (requires course_id)
-- manage_notes: Create/update/delete/list notes
-- manage_habits: Create/update/delete/list/toggle habits
-- manage_transactions: Create/update/delete/list income/expenses
-- manage_movies_series: Manage watchlist
-- manage_books_podcasts: Manage reading list
-- manage_clients: Manage clients
-- get_summary: Get summaries for tasks/projects/habits/transactions
-- get_week_schedule: View full week schedule with tasks per day
-- manage_focus_sessions: Start/stop/list/stats for focus sessions
+1. الكورسات ≠ المشاريع:
+   • كورس = للتعلم فقط → manage_courses
+   • مشروع = للعمل أو المشاريع الشخصية → manage_projects
+   • "أضف كورس تعلم الألمانية" → manage_courses
+   • "أضف مشروع موقع للعميل" → manage_projects
 
-Today's date: ${new Date().toISOString().split("T")[0]}
-Answer in the same language as the user's message (Arabic or English).`;
+2. العمليات المتعددة - نفذ فوراً:
+   • عند إنشاء كورس مع دروس:
+     - أولاً: manage_courses لإنشاء الكورس
+     - انتظر الـ UUID الحقيقي من الاستجابة
+     - ثم: manage_lessons لكل درس باستخدام الـ UUID الحقيقي
+   • عند إضافة اشتراك لعميل:
+     - أولاً: search_client للبحث عن العميل
+     - ثم: manage_subscriptions باستخدام client_id الحقيقي
+   • لا تقل "انتظر" - نفذ كل شيء فوراً!
+
+3. المهام على المشاريع:
+   • search_project أولاً → ثم manage_tasks مع project_id
+
+4. الاشتراكات:
+   • hosting = استضافة (سنوي عادة)
+   • support = دعم فني (شهري عادة)
+   • mark_paid = تسجيل دفعة وتحديث تاريخ الدفع القادم
+
+5. أجب بنفس لغة المستخدم (عربي/إنجليزي)
+
+═══════════════════════════════════════════════════════════════
+                        الأدوات المتاحة
+═══════════════════════════════════════════════════════════════
+
+📋 إدارة المهام:
+• manage_tasks: إنشاء/تحديث/حذف/عرض/إكمال المهام
+  - يدعم: title, description, status, priority, due_date, project_id, estimated_time (بالدقائق)
+• search_project: البحث عن مشروع بالاسم للحصول على UUID
+
+📁 إدارة المشاريع:
+• manage_projects: إنشاء/تحديث/حذف/عرض مشاريع العمل
+  - يدعم: title, description, status, priority, due_date, budget, category
+
+👥 إدارة العملاء والاشتراكات:
+• manage_clients: إنشاء/تحديث/حذف/عرض العملاء
+  - يدعم: name, email, phone, company, status (lead/active/inactive), notes
+• search_client: البحث عن عميل بالاسم للحصول على UUID
+• manage_subscriptions: إنشاء/تحديث/حذف/عرض/تسجيل دفع الاشتراكات
+  - الأنواع: hosting (استضافة), support (دعم فني), other (أخرى)
+  - الدورة: monthly (شهري), yearly (سنوي)
+  - الحالة: active, paused, cancelled, expired
+  - mark_paid: يسجل الدفع ويحدث next_payment_date تلقائياً
+
+📚 إدارة التعلم:
+• manage_courses: إنشاء/تحديث/حذف/عرض الكورسات
+  - يدعم: title, platform, instructor, status, notes, target_date
+• search_course: البحث عن كورس بالاسم للحصول على UUID
+• manage_lessons: إنشاء/تحديث/حذف/عرض/إكمال الدروس
+  - يدعم: course_id (مطلوب), title, description, duration_minutes, section
+
+✅ إدارة العادات:
+• manage_habits: إنشاء/تحديث/حذف/عرض/toggle العادات
+  - toggle_today: لتسجيل إكمال العادة اليوم
+
+💰 إدارة المالية:
+• manage_transactions: إنشاء/تحديث/حذف/عرض المعاملات
+  - النوع: income (دخل) / expense (مصروف)
+  - يدعم: amount, category, description, date, currency
+
+📝 إدارة الملاحظات:
+• manage_notes: إنشاء/تحديث/حذف/عرض الملاحظات
+  - يدعم: title, content, folder, is_pinned
+
+🎬 الترفيه:
+• manage_movies_series: إدارة قائمة المشاهدة
+  - النوع: movie / series
+  - الحالة: to-watch, watching, watched
+• manage_books_podcasts: إدارة قائمة القراءة/الاستماع
+  - النوع: book / podcast
+  - الحالة: to-consume, consuming, consumed
+
+⏱️ التركيز والإنتاجية:
+• manage_focus_sessions: بدء/إيقاف/عرض/إحصائيات جلسات التركيز
+  - start: بدء جلسة جديدة (يمكن ربطها بـ task_id)
+  - stop: إيقاف الجلسة الحالية
+  - stats: إحصائيات اليوم
+
+📊 التقارير والملخصات:
+• get_summary: ملخص المهام/المشاريع/العادات/المعاملات
+  - الفترة: today, week, month
+• get_week_schedule: جدول الأسبوع الكامل مع المهام لكل يوم
+  - week_offset: 0 للأسبوع الحالي، 1 للقادم، -1 للسابق
+
+═══════════════════════════════════════════════════════════════
+
+تاريخ اليوم: ${new Date().toISOString().split("T")[0]}
+
+تذكر: نفذ كل العمليات المطلوبة فوراً في نفس الرد، لا تطلب من المستخدم الانتظار!`;
 
     // Build messages array for OpenAI-compatible format
     const messages: Array<any> = [
