@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Calendar, DollarSign, User, Edit2, Trash2, Server, Headphones, MoreHorizontal, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, Search, Calendar, DollarSign, User, Edit2, Trash2, Server, Headphones, MoreHorizontal, AlertTriangle, Clock, CreditCard, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, differenceInDays, addMonths, addYears } from 'date-fns';
+import MySubscriptions from '@/components/subscriptions/MySubscriptions';
 
 const typeConfig: Record<SubscriptionType, { label: string; icon: any; color: string }> = {
   hosting: { label: 'استضافة', icon: Server, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -203,9 +205,35 @@ export default function Subscriptions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">الاشتراكات والاتفاقيات</h1>
-          <p className="text-muted-foreground">إدارة اشتراكات العملاء والدفعات المتكررة</p>
+          <h1 className="text-2xl font-bold">الاشتراكات</h1>
+          <p className="text-muted-foreground">إدارة اشتراكاتك واشتراكات العملاء</p>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="my-subs" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="my-subs" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            اشتراكاتي
+          </TabsTrigger>
+          <TabsTrigger value="client-subs" className="gap-2">
+            <Users className="h-4 w-4" />
+            اشتراكات العملاء
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="my-subs" className="mt-6">
+          <MySubscriptions />
+        </TabsContent>
+
+        <TabsContent value="client-subs" className="mt-6 space-y-6">
+          {/* Client Subscriptions Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">اشتراكات العملاء</h2>
+              <p className="text-sm text-muted-foreground">إدارة اشتراكات العملاء والدفعات المتكررة</p>
+            </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" /> إضافة اشتراك</Button>
@@ -514,6 +542,8 @@ export default function Subscriptions() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
