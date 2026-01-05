@@ -170,7 +170,9 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed top-0 z-40 h-screen bg-sidebar/95 backdrop-blur-xl border-sidebar-border transition-all duration-300 ease-out flex flex-col',
+        'fixed top-0 z-40 h-screen bg-sidebar/95 backdrop-blur-xl border-sidebar-border transition-all duration-300 ease-out flex-col',
+        // Hidden on mobile, shown on md+
+        'hidden md:flex',
         rtlEnabled ? 'right-0 border-l' : 'left-0 border-r',
         sidebarCollapsed ? 'w-16' : 'w-60'
       )}

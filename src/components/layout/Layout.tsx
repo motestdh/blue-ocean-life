@@ -58,16 +58,18 @@ export function Layout({ children }: LayoutProps) {
       <div
         className={cn(
           'min-h-screen transition-all duration-300',
+          // Hide sidebar margin on mobile (< md breakpoint)
+          'md:transition-all',
           rtlEnabled 
-            ? (sidebarCollapsed ? 'mr-16' : 'mr-60')
-            : (sidebarCollapsed ? 'ml-16' : 'ml-60')
+            ? (sidebarCollapsed ? 'md:mr-16' : 'md:mr-60')
+            : (sidebarCollapsed ? 'md:ml-16' : 'md:ml-60')
         )}
       >
         <Header 
           onCommandPalette={() => setCommandOpen(true)} 
           onSearch={() => setSearchOpen(true)}
         />
-        <main className="p-6">
+        <main className="p-3 md:p-6">
           {children}
         </main>
       </div>

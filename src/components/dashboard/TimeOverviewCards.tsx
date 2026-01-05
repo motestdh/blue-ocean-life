@@ -31,35 +31,35 @@ export function TimeOverviewCards({
   const isOverloaded = tomorrowEstimated > 480; // 8 hours
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
       {/* Today's Workload */}
-      <div className="blitzit-card p-5">
-        <div className="flex items-center justify-between mb-3">
+      <div className="blitzit-card p-3 md:p-5">
+        <div className="flex items-center justify-between mb-2 md:mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-primary" />
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-primary/10 flex items-center justify-center">
+              <Clock className="w-4 h-4 md:w-5 md:h-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Today's Workload</h3>
-              <p className="text-xs text-muted-foreground">{todayTaskCount} tasks</p>
+              <h3 className="font-semibold text-foreground text-sm md:text-base">Today's Workload</h3>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{todayTaskCount} tasks</p>
             </div>
           </div>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-bold text-foreground">{formatTime(todayEstimated)}</span>
-            <span className="text-sm text-muted-foreground">estimated</span>
+            <span className="text-2xl md:text-3xl font-bold text-foreground">{formatTime(todayEstimated)}</span>
+            <span className="text-xs md:text-sm text-muted-foreground">estimated</span>
           </div>
           
-          <Progress value={todayProgress} className="h-2" />
+          <Progress value={todayProgress} className="h-1.5 md:h-2" />
           
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-xs md:text-sm">
             <span className="text-muted-foreground">
-              {formatTime(todayActual)} completed
+              {formatTime(todayActual)} done
             </span>
             <span className="text-primary font-medium">
-              {formatTime(todayRemaining)} remaining
+              {formatTime(todayRemaining)} left
             </span>
           </div>
         </div>
@@ -67,50 +67,50 @@ export function TimeOverviewCards({
 
       {/* Tomorrow's Workload */}
       <div className={cn(
-        "blitzit-card p-5",
+        "blitzit-card p-3 md:p-5",
         isOverloaded && "border-destructive/50"
       )}>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2 md:mb-3">
           <div className="flex items-center gap-2">
             <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center",
+              "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center",
               isOverloaded ? "bg-destructive/10" : "bg-secondary"
             )}>
               <CalendarDays className={cn(
-                "w-5 h-5",
+                "w-4 h-4 md:w-5 md:h-5",
                 isOverloaded ? "text-destructive" : "text-muted-foreground"
               )} />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Tomorrow's Workload</h3>
-              <p className="text-xs text-muted-foreground">{tomorrowTaskCount} tasks scheduled</p>
+              <h3 className="font-semibold text-foreground text-sm md:text-base">Tomorrow</h3>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{tomorrowTaskCount} tasks</p>
             </div>
           </div>
           {isOverloaded && (
-            <AlertCircle className="w-5 h-5 text-destructive" />
+            <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-destructive" />
           )}
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           <div className="flex items-baseline justify-between">
             <span className={cn(
-              "text-3xl font-bold",
+              "text-2xl md:text-3xl font-bold",
               isOverloaded ? "text-destructive" : "text-foreground"
             )}>
               {formatTime(tomorrowEstimated)}
             </span>
-            <span className="text-sm text-muted-foreground">estimated</span>
+            <span className="text-xs md:text-sm text-muted-foreground">estimated</span>
           </div>
           
           {isOverloaded && (
-            <p className="text-xs text-destructive">
-              Heavy workload! Consider rescheduling some tasks.
+            <p className="text-[10px] md:text-xs text-destructive">
+              Heavy workload! Consider rescheduling.
             </p>
           )}
           
           {!isOverloaded && tomorrowTaskCount === 0 && (
-            <p className="text-xs text-muted-foreground">
-              No tasks scheduled yet
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              No tasks scheduled
             </p>
           )}
         </div>
