@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePersonalSubscriptions, PersonalSubscription, PersonalBillingCycle, PersonalSubscriptionStatus, PersonalSubscriptionCategory } from '@/hooks/usePersonalSubscriptions';
+import { useTransactions } from '@/hooks/useTransactions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Calendar, DollarSign, Edit2, Trash2, Tv, Monitor, Settings, Zap, MoreHorizontal, AlertTriangle, Clock, ExternalLink } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Edit2, Trash2, Tv, Monitor, Settings, Zap, MoreHorizontal, AlertTriangle, Clock, ExternalLink, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, differenceInDays, addMonths, addYears, addWeeks } from 'date-fns';
 
@@ -35,6 +36,7 @@ const cycleConfig: Record<PersonalBillingCycle, string> = {
 
 export default function MySubscriptions() {
   const { subscriptions, loading, addSubscription, updateSubscription, deleteSubscription, getMonthlyTotal } = usePersonalSubscriptions();
+  const { addTransaction } = useTransactions();
   const { toast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -133,6 +135,23 @@ export default function MySubscriptions() {
   };
 
   const handleMarkPaid = async (subscription: PersonalSubscription) => {
+    // Create a transaction in Finance
+    const transactionResult = await addTransaction({
+      type: 'expense',
+      amount: subscription.amount,
+      currency: subscription.currency,
+      category: `اشتراك: ${categoryConfig[subscription.category]?.label || 'أخرى'}`,
+      description: `دفع اشتراك ${subscription.name}`,
+      date: format(new Date(), 'yyyy-MM-dd'),
+      status: 'paid',
+    });
+
+    if (transactionResult.error) {
+      toast({ title: 'خطأ', description: transactionResult.error, variant: 'destructive' });
+      return;
+    }
+
+    // Calculate next payment date
     let nextDate: Date;
     switch (subscription.billing_cycle) {
       case 'weekly':
@@ -152,7 +171,7 @@ export default function MySubscriptions() {
     if (result.error) {
       toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
     } else {
-      toast({ title: 'تم التحديث', description: 'تم تسجيل الدفع وتحديث تاريخ الاستحقاق التالي' });
+      toast({ title: 'تم الدفع', description: 'تم تسجيل الدفع في Finance وتحديث تاريخ الاستحقاق التالي' });
     }
   };
 
