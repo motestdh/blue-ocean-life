@@ -492,6 +492,65 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          amount: number
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          client_id: string
+          created_at: string
+          currency: string | null
+          id: string
+          name: string
+          next_payment_date: string
+          notes: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          type: Database["public"]["Enums"]["subscription_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          client_id: string
+          created_at?: string
+          currency?: string | null
+          id?: string
+          name: string
+          next_payment_date?: string
+          notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          type?: Database["public"]["Enums"]["subscription_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          client_id?: string
+          created_at?: string
+          currency?: string | null
+          id?: string
+          name?: string
+          next_payment_date?: string
+          notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          type?: Database["public"]["Enums"]["subscription_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           actual_time: number | null
@@ -710,6 +769,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      billing_cycle: "monthly" | "yearly"
       client_status: "lead" | "active" | "past" | "partner"
       habit_frequency: "daily" | "weekly" | "monthly"
       priority_level: "high" | "medium" | "low"
@@ -719,6 +779,8 @@ export type Database = {
         | "completed"
         | "on-hold"
         | "cancelled"
+      subscription_status: "active" | "paused" | "cancelled" | "expired"
+      subscription_type: "hosting" | "support" | "other"
       task_status: "todo" | "in-progress" | "completed"
       transaction_status: "paid" | "pending" | "overdue"
       transaction_type: "income" | "expense"
@@ -849,6 +911,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      billing_cycle: ["monthly", "yearly"],
       client_status: ["lead", "active", "past", "partner"],
       habit_frequency: ["daily", "weekly", "monthly"],
       priority_level: ["high", "medium", "low"],
@@ -859,6 +922,8 @@ export const Constants = {
         "on-hold",
         "cancelled",
       ],
+      subscription_status: ["active", "paused", "cancelled", "expired"],
+      subscription_type: ["hosting", "support", "other"],
       task_status: ["todo", "in-progress", "completed"],
       transaction_status: ["paid", "pending", "overdue"],
       transaction_type: ["income", "expense"],

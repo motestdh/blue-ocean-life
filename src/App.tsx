@@ -14,6 +14,7 @@ import Habits from "./pages/Habits";
 import Finance from "./pages/Finance";
 import CalendarPage from "./pages/CalendarPage";
 import Clients from "./pages/Clients";
+import Subscriptions from "./pages/Subscriptions";
 import Notes from "./pages/Notes";
 import Learning from "./pages/Learning";
 import Settings from "./pages/Settings";
@@ -48,6 +49,7 @@ const App = () => (
                     <Route path="/finance" element={<Finance />} />
                     <Route path="/calendar" element={<CalendarPage />} />
                     <Route path="/clients" element={<Clients />} />
+                    <Route path="/subscriptions" element={<Subscriptions />} />
                     <Route path="/notes" element={<Notes />} />
                     <Route path="/learning" element={<Learning />} />
                     <Route path="/books-podcasts" element={<BooksPodcasts />} />
