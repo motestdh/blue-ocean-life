@@ -18,7 +18,8 @@ import {
   BarChart3,
   Book,
   Film,
-  GripVertical
+  GripVertical,
+  FileSignature
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/useAppStore';
@@ -48,6 +49,7 @@ const navItemsMap: Record<string, { icon: LucideIcon; label: string }> = {
   '/tasks': { icon: CheckSquare, label: 'Tasks' },
   '/focus': { icon: Target, label: 'Focus' },
   '/clients': { icon: Users, label: 'Clients' },
+  '/subscriptions': { icon: FileSignature, label: 'Subscriptions' },
   '/finance': { icon: DollarSign, label: 'Finance' },
   '/learning': { icon: BookOpen, label: 'Learning' },
   '/books-podcasts': { icon: Book, label: 'Books & Podcasts' },
