@@ -382,6 +382,54 @@ export type Database = {
           },
         ]
       }
+      personal_subscriptions: {
+        Row: {
+          amount: number
+          billing_cycle: string
+          category: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          name: string
+          next_payment_date: string
+          notes: string | null
+          status: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          billing_cycle?: string
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          name: string
+          next_payment_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: string
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          name?: string
+          next_payment_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
