@@ -6,6 +6,32 @@ type Language = 'en' | 'ar';
 type BackgroundStyle = 'default' | 'gradient' | 'subtle' | 'solid' | 'mesh' | 'aurora' | 'minimal';
 type FontFamily = 'system' | 'inter' | 'poppins' | 'space' | 'jakarta' | 'dm' | 'outfit' | 'mono';
 
+const THEME_COLOR_HSL: Record<ThemeColor, string> = {
+  blue: '199 89% 48%',
+  green: '160 84% 39%',
+  purple: '262 83% 58%',
+  orange: '24 95% 53%',
+  pink: '330 81% 60%',
+  cyan: '180 70% 45%',
+  red: '0 84% 60%',
+  teal: '168 76% 42%',
+  gold: '45 93% 47%',
+  indigo: '239 84% 67%',
+  rose: '350 89% 60%',
+  emerald: '152 69% 45%',
+};
+
+function applyThemeColor(color: ThemeColor) {
+  const root = document.documentElement;
+  const hsl = THEME_COLOR_HSL[color];
+  root.style.setProperty('--primary', hsl);
+  root.style.setProperty('--accent', hsl);
+  root.style.setProperty('--ring', hsl);
+  root.style.setProperty('--sidebar-primary', hsl);
+  root.style.setProperty('--sidebar-ring', hsl);
+}
+
+
 interface NotificationSettings {
   taskReminders: boolean;
   habitCheckins: boolean;
@@ -86,16 +112,18 @@ export const useAppStore = create<AppState>()(
       // Theme actions
       setTheme: (theme) => {
         set({ theme });
-        document.documentElement.classList.remove('dark', 'light');
-        document.documentElement.classList.add(theme);
+        document.documentElement.classList.toggle('dark', theme === 'dark');
       },
       
       setThemeColor: (color) => {
         set({ themeColor: color });
-        const allColors = ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'];
-        allColors.forEach(c => {
-          document.documentElement.classList.remove(`theme-${c}`);
-        });
+
+        // Apply via CSS variables (reliable + instant)
+        applyThemeColor(color);
+
+        // Keep classes for backward compatibility with existing CSS
+        const allColors = ['green', 'blue', 'purple', 'orange', 'pink', 'cyan', 'red', 'teal', 'gold', 'indigo', 'rose', 'emerald'] as const;
+        allColors.forEach((c) => document.documentElement.classList.remove(`theme-${c}`));
         document.documentElement.classList.add(`theme-${color}`);
       },
       
