@@ -115,9 +115,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 VITE_SUPABASE_PROJECT_ID=your-project-id
 ```
 
-### 🗄️ قاعدة البيانات
+### 🗄️ قاعدة البيانات | Database Schema
 
-#### الجداول الرئيسية
+#### الجداول الرئيسية | Main Tables
 
 | الجدول | الوصف |
 |--------|--------|
@@ -136,6 +136,567 @@ VITE_SUPABASE_PROJECT_ID=your-project-id
 | `focus_sessions` | جلسات التركيز |
 | `books_podcasts` | الكتب والبودكاست |
 | `movies_series` | الأفلام والمسلسلات |
+| `user_categories` | الفئات المخصصة |
+| `user_currency_rates` | أسعار الصرف |
+| `user_nav_order` | ترتيب القائمة |
+
+---
+
+### 📊 Full Database Schema
+
+<details>
+<summary><strong>👤 profiles</strong> - User profiles and settings</summary>
+
+```sql
+CREATE TABLE public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  full_name TEXT,
+  avatar_url TEXT,
+  timezone TEXT DEFAULT 'UTC',
+  notification_email TEXT,
+  email_notifications_enabled BOOLEAN DEFAULT false,
+  telegram_enabled BOOLEAN DEFAULT false,
+  telegram_chat_id TEXT,
+  telegram_bot_token TEXT,
+  notification_time TIME DEFAULT '08:00:00',
+  gemini_api_key TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Auto-create profile on user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name)
+  VALUES (NEW.id, NEW.raw_user_meta_data ->> 'full_name');
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+</details>
+
+<details>
+<summary><strong>📁 projects</strong> - Project management</summary>
+
+```sql
+CREATE TABLE public.projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status project_status DEFAULT 'new',
+  priority priority_level DEFAULT 'medium',
+  category TEXT DEFAULT 'General',
+  color TEXT DEFAULT '#0EA5E9',
+  progress INTEGER DEFAULT 0,
+  due_date DATE,
+  budget NUMERIC,
+  actual_cost NUMERIC DEFAULT 0,
+  client_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own projects" ON public.projects FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own projects" ON public.projects FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own projects" ON public.projects FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own projects" ON public.projects FOR DELETE USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>✅ tasks</strong> - Task management with Kanban support</summary>
+
+```sql
+CREATE TABLE public.tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status task_status DEFAULT 'todo',
+  priority priority_level DEFAULT 'medium',
+  due_date DATE,
+  estimated_time NUMERIC,
+  actual_time NUMERIC DEFAULT 0,
+  sort_order INTEGER DEFAULT 0,
+  project_id UUID,
+  parent_task_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own tasks" ON public.tasks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own tasks" ON public.tasks FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own tasks" ON public.tasks FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own tasks" ON public.tasks FOR DELETE USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>🎯 habits & habit_completions</strong> - Habit tracking</summary>
+
+```sql
+CREATE TABLE public.habits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  icon TEXT DEFAULT '⭐',
+  color TEXT DEFAULT '#0EA5E9',
+  frequency habit_frequency DEFAULT 'daily',
+  current_streak INTEGER DEFAULT 0,
+  best_streak INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.habit_completions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  habit_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  completed_date DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.habits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.habit_completions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own habits" ON public.habits FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can CRUD their own habit_completions" ON public.habit_completions FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>💰 transactions</strong> - Financial tracking</summary>
+
+```sql
+CREATE TABLE public.transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  type transaction_type NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  description TEXT DEFAULT '',
+  date DATE DEFAULT CURRENT_DATE,
+  status transaction_status DEFAULT 'paid',
+  project_id UUID,
+  client_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own transactions" ON public.transactions FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>👥 clients</strong> - Client management</summary>
+
+```sql
+CREATE TABLE public.clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  company TEXT,
+  status client_status DEFAULT 'lead',
+  notes TEXT DEFAULT '',
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own clients" ON public.clients FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>🔄 subscriptions</strong> - Client subscriptions (services you provide)</summary>
+
+```sql
+CREATE TABLE public.subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  client_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  type subscription_type DEFAULT 'support',
+  amount NUMERIC DEFAULT 0,
+  currency TEXT DEFAULT 'USD',
+  billing_cycle billing_cycle DEFAULT 'monthly',
+  start_date DATE DEFAULT CURRENT_DATE,
+  next_payment_date DATE DEFAULT CURRENT_DATE,
+  status subscription_status DEFAULT 'active',
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own subscriptions" ON public.subscriptions FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>💳 personal_subscriptions</strong> - Personal subscriptions (services you pay for)</summary>
+
+```sql
+CREATE TABLE public.personal_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  amount NUMERIC DEFAULT 0,
+  currency TEXT DEFAULT 'USD',
+  billing_cycle TEXT DEFAULT 'monthly',
+  category TEXT DEFAULT 'other',
+  next_payment_date DATE DEFAULT CURRENT_DATE,
+  status TEXT DEFAULT 'active',
+  url TEXT,
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.personal_subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own personal_subscriptions" ON public.personal_subscriptions FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>📝 notes</strong> - Note-taking with folders</summary>
+
+```sql
+CREATE TABLE public.notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT DEFAULT '',
+  folder TEXT DEFAULT 'General',
+  is_pinned BOOLEAN DEFAULT false,
+  project_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own notes" ON public.notes FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>📚 courses & lessons</strong> - Learning management</summary>
+
+```sql
+CREATE TABLE public.courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  platform TEXT,
+  instructor TEXT,
+  status TEXT DEFAULT 'not-started',
+  total_lessons INTEGER DEFAULT 0,
+  completed_lessons INTEGER DEFAULT 0,
+  target_date DATE,
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.lessons (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  section TEXT,
+  duration_minutes INTEGER DEFAULT 0,
+  sort_order INTEGER DEFAULT 0,
+  is_completed BOOLEAN DEFAULT false,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own courses" ON public.courses FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can CRUD their own lessons" ON public.lessons FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>📖 books_podcasts</strong> - Reading & listening list</summary>
+
+```sql
+CREATE TABLE public.books_podcasts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT DEFAULT 'book',
+  status TEXT DEFAULT 'to-consume',
+  url TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.books_podcasts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own books_podcasts" ON public.books_podcasts FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>🎬 movies_series</strong> - Watch list</summary>
+
+```sql
+CREATE TABLE public.movies_series (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT DEFAULT 'movie',
+  status TEXT DEFAULT 'to-watch',
+  description TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.movies_series ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own movies_series" ON public.movies_series FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>🎯 focus_sessions</strong> - Pomodoro & focus tracking</summary>
+
+```sql
+CREATE TABLE public.focus_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  task_id UUID,
+  session_type TEXT DEFAULT 'focus',
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ,
+  duration INTEGER DEFAULT 0,
+  completed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own focus_sessions" ON public.focus_sessions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own focus_sessions" ON public.focus_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own focus_sessions" ON public.focus_sessions FOR UPDATE USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>⚙️ user_categories</strong> - Custom categories</summary>
+
+```sql
+CREATE TABLE public.user_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT DEFAULT '#0EA5E9',
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.user_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD their own categories" ON public.user_categories FOR ALL USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>💱 user_currency_rates</strong> - Currency exchange rates</summary>
+
+```sql
+CREATE TABLE public.user_currency_rates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  usd_to_eur NUMERIC DEFAULT 0.82,
+  eur_to_dzd NUMERIC DEFAULT 275,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.user_currency_rates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own rates" ON public.user_currency_rates FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own rates" ON public.user_currency_rates FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own rates" ON public.user_currency_rates FOR UPDATE USING (auth.uid() = user_id);
+```
+</details>
+
+<details>
+<summary><strong>📋 user_nav_order</strong> - Navigation order customization</summary>
+
+```sql
+CREATE TABLE public.user_nav_order (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  nav_order TEXT[] DEFAULT ARRAY[]::TEXT[],
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS Policies
+ALTER TABLE public.user_nav_order ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own nav order" ON public.user_nav_order FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own nav order" ON public.user_nav_order FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own nav order" ON public.user_nav_order FOR UPDATE USING (auth.uid() = user_id);
+```
+</details>
+
+---
+
+### 🔢 Database Enums
+
+```sql
+-- Priority levels
+CREATE TYPE priority_level AS ENUM ('low', 'medium', 'high', 'urgent');
+
+-- Project status
+CREATE TYPE project_status AS ENUM ('new', 'in_progress', 'on_hold', 'completed', 'cancelled');
+
+-- Task status
+CREATE TYPE task_status AS ENUM ('todo', 'in_progress', 'review', 'done');
+
+-- Client status
+CREATE TYPE client_status AS ENUM ('lead', 'active', 'inactive', 'archived');
+
+-- Transaction type
+CREATE TYPE transaction_type AS ENUM ('income', 'expense');
+
+-- Transaction status
+CREATE TYPE transaction_status AS ENUM ('pending', 'paid', 'cancelled');
+
+-- Billing cycle
+CREATE TYPE billing_cycle AS ENUM ('monthly', 'quarterly', 'yearly');
+
+-- Subscription type
+CREATE TYPE subscription_type AS ENUM ('support', 'hosting', 'maintenance', 'other');
+
+-- Subscription status
+CREATE TYPE subscription_status AS ENUM ('active', 'paused', 'cancelled', 'expired');
+
+-- Habit frequency
+CREATE TYPE habit_frequency AS ENUM ('daily', 'weekly', 'monthly');
+```
+
+---
+
+### 🔧 Database Functions
+
+```sql
+-- Auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public;
+
+-- Apply trigger to all tables with updated_at
+CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+-- Repeat for other tables...
+```
+
+---
+
+### 🗺️ Entity Relationship Diagram
+
+```
+┌─────────────────┐
+│     profiles    │
+│─────────────────│
+│ id (PK)         │◄─────────────────────────────────────────────────────┐
+│ full_name       │                                                       │
+│ avatar_url      │                                                       │
+│ timezone        │                                                       │
+│ telegram_*      │                                                       │
+└─────────────────┘                                                       │
+        │                                                                 │
+        │ user_id                                                         │
+        ▼                                                                 │
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐      │
+│     clients     │     │    projects     │     │      tasks      │      │
+│─────────────────│     │─────────────────│     │─────────────────│      │
+│ id (PK)         │◄────│ client_id (FK)  │     │ id (PK)         │      │
+│ user_id         │     │ id (PK)         │◄────│ project_id (FK) │      │
+│ name            │     │ user_id         │     │ user_id         │      │
+│ email           │     │ title           │     │ title           │      │
+│ company         │     │ status          │     │ status          │      │
+│ status          │     │ budget          │     │ priority        │      │
+└─────────────────┘     │ progress        │     │ parent_task_id  │◄─┐   │
+        │               └─────────────────┘     └─────────────────┘  │   │
+        │                       │                       │            │   │
+        │                       │                       └────────────┘   │
+        ▼                       ▼                                        │
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐      │
+│  subscriptions  │     │  transactions   │     │ focus_sessions  │      │
+│─────────────────│     │─────────────────│     │─────────────────│      │
+│ id (PK)         │     │ id (PK)         │     │ id (PK)         │      │
+│ client_id (FK)  │     │ project_id (FK) │     │ task_id (FK)    │──────┤
+│ user_id         │     │ client_id (FK)  │     │ user_id         │      │
+│ amount          │     │ amount          │     │ duration        │      │
+│ billing_cycle   │     │ type            │     │ completed       │      │
+│ status          │     │ category        │     └─────────────────┘      │
+└─────────────────┘     └─────────────────┘                              │
+                                                                         │
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐      │
+│     habits      │     │     courses     │     │      notes      │      │
+│─────────────────│     │─────────────────│     │─────────────────│      │
+│ id (PK)         │◄─┐  │ id (PK)         │◄─┐  │ id (PK)         │      │
+│ user_id         │  │  │ user_id         │  │  │ user_id         │──────┤
+│ name            │  │  │ title           │  │  │ title           │      │
+│ frequency       │  │  │ platform        │  │  │ folder          │      │
+│ current_streak  │  │  │ status          │  │  │ project_id (FK) │      │
+└─────────────────┘  │  └─────────────────┘  │  └─────────────────┘      │
+        │            │          │            │                           │
+        │            │          │            │                           │
+        ▼            │          ▼            │                           │
+┌─────────────────┐  │  ┌─────────────────┐  │                           │
+│habit_completions│  │  │     lessons     │  │                           │
+│─────────────────│  │  │─────────────────│  │                           │
+│ id (PK)         │  │  │ id (PK)         │  │                           │
+│ habit_id (FK)   │──┘  │ course_id (FK)  │──┘                           │
+│ user_id         │     │ user_id         │──────────────────────────────┘
+│ completed_date  │     │ title           │
+└─────────────────┘     │ is_completed    │
+                        └─────────────────┘
+```
+
+---
 
 #### تشغيل الـ Migrations
 
